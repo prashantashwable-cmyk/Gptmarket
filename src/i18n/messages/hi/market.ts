@@ -146,6 +146,7 @@ export const market: Deep<typeof en> = {
   },
   mk: {
     po: {
+      score: "प्रदर्शन स्कोर", scoreHint: "सलाहकारी, AIEC रिकॉर्ड से: 48 घंटे में जवाब, समय पर डिलीवरी और स्वीकृत मूल्य।", noScore: "अभी पर्याप्त इतिहास नहीं", scoreParts: "{ack} 48 घंटे में स्वीकार · {onTime} समय पर · {price} मूल्य स्वीकृत", na: "—",
       title: "सप्लायर खरीद आदेश",
       hint: "हर सप्लायर के लिए एक खरीद आदेश, स्वीकृत कोटेशन में तय हुई लागत से।",
       generate: "खरीद आदेश जारी करें",
@@ -371,12 +372,14 @@ export const market: Deep<typeof en> = {
       createVersion: 'संस्करण बनाएँ', versionCreated: 'नया कोटेशन संस्करण बनाया गया।', history: 'संस्करण', events: 'ऑटोमेशन लॉग',
     },
     exc: {
+      paymentDelays: "{count} ग्राहक इनवॉइस देय तिथि पार", supplierDelays: "{count} सप्लायर डिलीवरी में देरी",
       pricingRulesMissing: 'कोई सक्रिय मूल्य नियम नहीं', compatRulesMissing: 'कोई सक्रिय इंजीनियरिंग नियम नहीं', quotesIneligible: 'निलंबित आइटम वाले {count} खुले कोटेशन',
       failedEvents: '{count} विफल ऑटोमेशन चरण', partnersExpired: 'लाइसेंस की अवधि समाप्त वाले {count} पार्टनर', engineering: '{count} इंजीनियरिंग की प्रतीक्षा में',
       owner: '{count} मालिक की स्वीकृति की प्रतीक्षा में', priceJumps: '{count} बड़े मूल्य बदलाव', prices: '{count} मूल्य स्वीकृति हेतु', products: '{count} उत्पाद स्वीकृति हेतु',
       suppliers: '{count} सप्लायर लंबित', expiring: '{count} कोटेशन 3 दिन में समाप्त', estimates: '{count} अनुमान के लिए साइट सर्वे चाहिए',
     },
     excHint: {
+      paymentDelays: "देय तिथि पार कर चुके AIEC कॉन्ट्रैक्ट इनवॉइस।", supplierDelays: "वादा की गई डिलीवरी तिथि पार कर चुके खरीद आदेश।",
       pricingRulesMissing: 'मालिक के मूल्य नियम सक्रिय करने तक ग्राहक “अनुरोध पर मूल्य” देखते हैं।', compatRulesMissing: 'इंजीनियर के नियम सक्रिय करने तक कुछ जाँचा या कोट नहीं हो सकता।',
       quotesIneligible: 'ग्राहक के स्वीकार करने से पहले संशोधित संस्करण जारी करें।', failedEvents: 'त्रुटि के लिए ऑडिट लॉग देखें।', partnersExpired: 'लाइसेंस की अवधि समाप्त पार्टनर को प्रोजेक्ट नहीं मिल सकते।',
       engineering: 'अधिकृत इंजीनियर को निर्णय लेना है।', owner: 'छूट या मार्जिन अपवाद।', priceJumps: '25% से अधिक बदलाव: त्रुटि जाँचें।', prices: 'सप्लायर के भेजे मूल्य।',

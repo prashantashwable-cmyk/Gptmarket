@@ -9,7 +9,31 @@ import { zDate, zEnum, zMoney, zOptDate, zOptText, zText, zUuid } from '@/lib/va
 import { audit, notifyCompany, notifyPermission } from '../audit';
 import { requireCompany, requirePerm, type Ctx } from '../ctx';
 import { withCtx, type Rec, type Tx } from '../db';
+import { supplierScore, type SupplierScore } from '@/lib/supplier-score';
 import { emitEvent } from './automation';
+
+/** A purchase order counts as acknowledged on time when the supplier responds within this many hours. */
+export const ACK_TARGET_HOURS = 48;
+
+/** Advisory performance scores from AIEC's records (purchase orders and price reviews), per supplier. */
+export async function supplierScores(tx: Tx, companyIds: string[]): Promise<Map<string, SupplierScore>> {
+  if (!companyIds.length) return new Map();
+  const rows = await tx.query<Rec>(
+    `select c.id,
+            (select count(*) from supplier_purchase_orders po where po.company_id = c.id and po.acknowledged_at is not null) as ack,
+            (select count(*) from supplier_purchase_orders po where po.company_id = c.id and po.acknowledged_at is not null
+               and po.acknowledged_at <= po.created_at + make_interval(hours => $2)) as ack_ok,
+            (select count(*) from supplier_purchase_orders po where po.company_id = c.id and po.status = 'DELIVERED' and po.expected_delivery is not null) as dlv,
+            (select count(*) from supplier_purchase_orders po where po.company_id = c.id and po.status = 'DELIVERED' and po.expected_delivery is not null
+               and (po.delivered_at at time zone 'Asia/Kolkata')::date <= po.expected_delivery) as dlv_ok,
+            (select count(*) from supplier_product_prices pr where pr.company_id = c.id and pr.status in ('APPROVED','REJECTED')) as prices,
+            (select count(*) from supplier_product_prices pr where pr.company_id = c.id and pr.status = 'REJECTED') as rejected
+       from companies c where c.id = any($1)`, [companyIds, ACK_TARGET_HOURS]);
+  return new Map(rows.map((r) => [r.id as string, supplierScore({
+    acknowledged: Number(r.ack), acknowledgedOnTime: Number(r.ack_ok), delivered: Number(r.dlv), deliveredOnTime: Number(r.dlv_ok),
+    pricesReviewed: Number(r.prices), pricesRejected: Number(r.rejected),
+  })]));
+}
 
 type CostLine = { productId: string; unitCost: string; quantity: number; lineCost: string };
 
@@ -62,11 +86,11 @@ export async function supplierPoAction(ctx: Ctx, input: z.infer<typeof supplierP
       if (po.status !== 'ISSUED') throw new AppError('INVALID_TRANSITION');
       if (!input.expectedDelivery) throw new AppError('VALIDATION', undefined, { expectedDelivery: 'REQUIRED' });
       if (input.expectedDelivery < isoDateIST()) throw new AppError('VALIDATION', undefined, { expectedDelivery: 'INVALID_DATE' });
-      await tx.exec(`update supplier_purchase_orders set status = 'ACKNOWLEDGED', expected_delivery = $2 where id = $1`, [po.id, input.expectedDelivery]);
+      await tx.exec(`update supplier_purchase_orders set status = 'ACKNOWLEDGED', expected_delivery = $2, acknowledged_at = now() where id = $1`, [po.id, input.expectedDelivery]);
     } else {
       if (!['ISSUED', 'ACKNOWLEDGED'].includes(po.status)) throw new AppError('INVALID_TRANSITION');
       if (!input.reference) throw new AppError('VALIDATION', undefined, { reference: 'REQUIRED' });
-      await tx.exec(`update supplier_purchase_orders set status = 'DISPATCHED', dispatch_reference = $2, dispatched_at = now() where id = $1`, [po.id, input.reference]);
+      await tx.exec(`update supplier_purchase_orders set status = 'DISPATCHED', dispatch_reference = $2, dispatched_at = now(), acknowledged_at = coalesce(acknowledged_at, now()) where id = $1`, [po.id, input.reference]);
       // Automation: material dispatched → notify operations.
       if (await emitEvent(tx, ctx, 'MATERIAL_DISPATCHED', `po-dispatch:${po.id}`, { type: 'order', id: po.order_id }, { po: po.po_number, reference: input.reference })) {
         await notifyPermission(tx, 'project.manage', 'MATERIAL_DISPATCHED', { number: po.po_number, order: po.order_number }, `/admin/orders/${po.order_id}`);
@@ -146,6 +170,7 @@ export async function getSupplierOrders(ctx: Ctx) {
     const rows = await withLines(tx, pos);
     const live = rows.filter((r) => r.status !== 'CANCELLED');
     const sum = (f: (r: Rec) => string) => fromPaise(live.reduce((s, r) => s + toPaise(f(r)), 0n));
-    return { orders: rows, ledger: { total: sum((r) => r.total_cost), paid: sum((r) => r.paid), outstanding: sum((r) => r.outstanding) } };
+    const score = (await supplierScores(tx, [companyId])).get(companyId)!;
+    return { orders: rows, score, ledger: { total: sum((r) => r.total_cost), paid: sum((r) => r.paid), outstanding: sum((r) => r.outstanding) } };
   });
 }

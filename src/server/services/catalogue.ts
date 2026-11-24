@@ -12,6 +12,7 @@ import { requireCompany, requirePerm, type Ctx } from '../ctx';
 import { withCtx, type Rec, type Tx } from '../db';
 import { emitEvent } from './automation';
 import { saveFile } from './files';
+import { supplierScores } from './supplier-orders';
 
 type Upload = { name: string; type: string; bytes: Buffer } | null;
 
@@ -234,6 +235,7 @@ export async function getCatalogueReview(ctx: Ctx) {
            from supplier_product_prices pr join supplier_products sp on sp.id = pr.product_id join companies c on c.id = pr.company_id
           where pr.status = 'SUBMITTED' order by pr.created_at`),
     ]);
-    return { suppliers, products, prices };
+    const scores = await supplierScores(tx, suppliers.map((x) => x.id));
+    return { suppliers: suppliers.map((x) => ({ ...x, score: scores.get(x.id) ?? null }) as Rec), products, prices };
   });
 }

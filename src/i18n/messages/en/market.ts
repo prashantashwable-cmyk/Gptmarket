@@ -142,6 +142,7 @@ export const market = {
   },
   mk: {
     po: {
+      score: "Performance score", scoreHint: "Advisory, from AIEC records: response within 48 hours, on-time delivery and accepted prices.", noScore: "Not enough history yet", scoreParts: "{ack} acknowledged in 48 h · {onTime} on time · {price} prices accepted", na: "—",
       title: "Supplier purchase orders",
       hint: "One purchase order per supplier, from the costs frozen in the accepted quotation.",
       generate: "Issue purchase orders",
@@ -367,12 +368,14 @@ export const market = {
       createVersion: 'Create version', versionCreated: 'A new quotation version was created.', history: 'Versions', events: 'Automation log',
     },
     exc: {
+      paymentDelays: "{count} customer invoice(s) overdue", supplierDelays: "{count} supplier delivery(ies) late",
       pricingRulesMissing: 'No active pricing rules', compatRulesMissing: 'No active engineering rules', quotesIneligible: '{count} open quotation(s) with suspended items',
       failedEvents: '{count} failed automation step(s)', partnersExpired: '{count} partner(s) with expired licence', engineering: '{count} waiting for engineering',
       owner: '{count} waiting for owner approval', priceJumps: '{count} large price change(s)', prices: '{count} price(s) to approve', products: '{count} product(s) to approve',
       suppliers: '{count} supplier(s) pending', expiring: '{count} quotation(s) expiring in 3 days', estimates: '{count} estimate(s) need a site survey',
     },
     excHint: {
+      paymentDelays: "AIEC Contract invoices past their due date.", supplierDelays: "Purchase orders past the promised delivery date.",
       pricingRulesMissing: 'Customers see “price on request” until the owner activates pricing rules.', compatRulesMissing: 'Nothing can be validated or quoted until an engineer activates rules.',
       quotesIneligible: 'Issue revised versions before customers accept.', failedEvents: 'See the audit log for the error.', partnersExpired: 'Expired partners cannot receive projects.',
       engineering: 'Authorised engineer must decide.', owner: 'Discount or margin exception.', priceJumps: 'More than 25% change: check for errors.', prices: 'Supplier price submissions.',

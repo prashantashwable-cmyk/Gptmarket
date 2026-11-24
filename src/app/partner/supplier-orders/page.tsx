@@ -1,4 +1,5 @@
 import { SupplierPurchaseOrders } from '@/components/market/purchase-orders';
+import { SupplierScoreBadge } from '@/components/market/supplier-score';
 import { Alert, PageHeader, Section, Stat } from '@/components/ui';
 import { AppError } from '@/lib/errors';
 import { formatINR } from '@/lib/format';
@@ -18,6 +19,7 @@ export default async function SupplierOrdersPage() {
         <Stat label={t('mk.po.ledgerPaid')} value={formatINR(data.ledger.paid, locale)} />
         <Stat label={t('mk.po.ledgerOutstanding')} value={formatINR(data.ledger.outstanding, locale)} />
       </div>
+      <Section title={t('mk.po.score')} description={t('mk.po.scoreHint')} className="mb-5"><SupplierScoreBadge t={t} score={data.score} detailed /></Section>
       <Section><SupplierPurchaseOrders t={t} locale={locale} pos={data.orders} /></Section>
     </>
   );

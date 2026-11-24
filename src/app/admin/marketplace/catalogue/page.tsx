@@ -1,5 +1,6 @@
 import { priceReviewAction, productReviewAction, supplierStatusAction } from '@/app/actions/market';
 import { FileLink, enumOptions } from '@/components/common';
+import { SupplierScoreBadge } from '@/components/market/supplier-score';
 import { Alert, Badge, EmptyState, PageHeader, Section, StatusBadge, Table, Td, Th } from '@/components/ui';
 import { ActionForm, Field, SelectField, SubmitButton } from '@/components/ui/form';
 import { SUPPLIER_STATUS } from '@/lib/enums';
@@ -68,13 +69,14 @@ export default async function CatalogueReview() {
       <Section title={t('mk.rev.suppliers')} description={t('mk.rev.suppliersHint')} className="mt-5">
         {suppliers.length === 0 ? <EmptyState title={t('common.noData')} /> : (
           <Table>
-            <thead><tr><Th>{t('mk.rev.supplier')}</Th><Th>{t('mk.rev.kyc')}</Th><Th>{t('mk.rev.marketStatus')}</Th><Th>{t('mk.rev.approvedProducts')}</Th><Th /></tr></thead>
+            <thead><tr><Th>{t('mk.rev.supplier')}</Th><Th>{t('mk.rev.kyc')}</Th><Th>{t('mk.rev.marketStatus')}</Th><Th>{t('mk.rev.approvedProducts')}</Th><Th>{t('mk.po.score')}</Th><Th /></tr></thead>
             <tbody>{suppliers.map((s) => (
               <tr key={s.id}>
                 <Td>{s.legal_name}<span className="block text-xs text-slate-500">{t(`e.companyCategory.${s.category}`)}{s.gstin ? ` · GSTIN ${s.gstin}` : ''}</span></Td>
                 <Td><StatusBadge value={s.status} label={t(`e.partnerStatus.${s.status}`)} /></Td>
                 <Td><StatusBadge value={s.marketplace_status} label={t(`e.supplierStatus.${s.marketplace_status}`)} />{s.marketplace_status_reason && <span className="block text-xs text-slate-500">{s.marketplace_status_reason}</span>}</Td>
                 <Td>{s.approved_products}</Td>
+                <Td><SupplierScoreBadge t={t} score={s.score} detailed /></Td>
                 <Td>{canApprove && (
                   <ActionForm action={supplierStatusAction} hideSuccess resetOnSuccess={false} className="flex flex-wrap items-end gap-1.5"><input type="hidden" name="companyId" value={s.id} />
                     <SelectField name="status" aria-label={t('mk.rev.marketStatus')} defaultValue={s.marketplace_status} options={enumOptions(t, 'supplierStatus', SUPPLIER_STATUS)} />

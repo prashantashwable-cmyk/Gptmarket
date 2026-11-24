@@ -68,6 +68,8 @@ AIEC order scope only via `app.aiec_order_scope()`.
 Supplier purchase orders: migration `0008_supplier_orders.sql`, service `supplier-orders.ts` (POs from frozen quotation costs, supplier acknowledge/dispatch,
 AIEC delivery, owner-only supplier payments, supplier ledger at `/partner/supplier-orders`). Events go through `app.emit_event()` (RLS needs read access for
 INSERT ... ON CONFLICT, so never insert into automation_events directly from a tenant transaction).
+Supplier performance score: `src/lib/supplier-score.ts` (advisory; 48 h acknowledgement, on-time delivery, accepted prices; needs 3+ events), shown to the
+supplier and in admin. Exception queue also escalates late supplier deliveries and overdue AIEC invoices.
 Next: Razorpay checkout (after merchant onboarding), supplier RFQs, automation retry worker.
 
 Open items (need the owner, not code): see README "Before going live" and `docs/compliance-register.md`.

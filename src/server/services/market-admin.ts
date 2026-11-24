@@ -45,7 +45,11 @@ export async function getMarketOverview(ctx: Ctx) {
          (select count(*) from automation_events where status = 'FAILED') as failed_events,
          (select count(*) from pricing_rule_versions where status = 'ACTIVE') as pricing_active,
          (select count(*) from compatibility_rule_versions where status = 'ACTIVE') as compat_active,
-         (select count(*) from companies c where c.category = 'ELEVATOR_COMPANY' and c.status = 'EXPIRED') as partners_expired`);
+         (select count(*) from companies c where c.category = 'ELEVATOR_COMPANY' and c.status = 'EXPIRED') as partners_expired,
+         (select count(*) from supplier_purchase_orders po where po.status in ('ISSUED','ACKNOWLEDGED')
+             and po.expected_delivery < (now() at time zone 'Asia/Kolkata')::date) as supplier_delays,
+         (select count(*) from customer_invoices i where i.status in ('ISSUED','PARTLY_PAID')
+             and i.due_date < (now() at time zone 'Asia/Kolkata')::date) as payment_delays`);
     const n = (v: unknown) => Number(v ?? 0);
     const items: ExceptionItem[] = [
       { kind: 'pricingRulesMissing', count: n(e.pricing_active) ? 0 : 1, href: '/admin/marketplace/rules', severity: 'red' },
@@ -53,6 +57,8 @@ export async function getMarketOverview(ctx: Ctx) {
       { kind: 'quotesIneligible', count: n(e.quotes_ineligible), href: '/admin/marketplace/quotations', severity: 'red' },
       { kind: 'failedEvents', count: n(e.failed_events), href: '/admin/audit', severity: 'red' },
       { kind: 'partnersExpired', count: n(e.partners_expired), href: '/admin/partners?status=EXPIRED', severity: 'red' },
+      { kind: 'paymentDelays', count: n(e.payment_delays), href: '/admin/orders', severity: 'red' },
+      { kind: 'supplierDelays', count: n(e.supplier_delays), href: '/admin/orders', severity: 'amber' },
       { kind: 'engineering', count: n(e.engineering), href: '/admin/marketplace/quotations?status=PENDING_ENGINEERING', severity: 'amber' },
       { kind: 'owner', count: n(e.owner), href: '/admin/marketplace/quotations?status=PENDING_OWNER_APPROVAL', severity: 'amber' },
       { kind: 'priceJumps', count: n(e.price_jumps), href: '/admin/marketplace/catalogue', severity: 'amber' },

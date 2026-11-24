@@ -16,7 +16,7 @@ import { generatePurchaseOrders, getOrderPurchaseOrders, getSupplierOrders, reco
 import { confirmOrder, getOrder, respondOrder } from '@/server/services/orders';
 import { addTeamMember } from '@/server/services/partners';
 import { updateMilestone } from '@/server/services/projects';
-import { reviewPrice, reviewProduct, saveSupplierProduct, setSupplierStatus, submitPrice } from '@/server/services/catalogue';
+import { getCatalogueReview, reviewPrice, reviewProduct, saveSupplierProduct, setSupplierStatus, submitPrice } from '@/server/services/catalogue';
 import { engineeringDecision, expireMarketQuotations, getMarketQuotation, issueNewVersion, pricingExceptionDecision, requestQuotation, respondQuotation } from '@/server/services/market-quotes';
 import { getMarketOverview } from '@/server/services/market-admin';
 import { createPricingDraft } from '@/server/services/rules';
@@ -471,6 +471,26 @@ describe('AIEC Contract execution: order, invoices, payments, refunds, payouts',
     const ledger = (await getSupplierOrders(suppliers[0])).ledger;
     expect(ledger.paid).toBe('1000.00');
     expect(Math.round(Number(ledger.outstanding) * 100)).toBe(Math.round(Number(po.total_cost) * 100) - 100000);
+  });
+
+  it('scores suppliers from their own record and escalates late deliveries and overdue invoices', async () => {
+    const bhimaScore = (await getSupplierOrders(suppliers[0])).score;
+    expect(bhimaScore.ackRate).toBe(100);
+    expect(bhimaScore.onTimeRate).toBe(100);
+    expect(bhimaScore.score).not.toBeNull();
+    const review = await getCatalogueReview(s.ops);
+    expect(review.suppliers.find((x) => x.legal_name.startsWith('Bhima'))!.score.score).toBe(bhimaScore.score);
+    const before = (await getMarketOverview(s.admin)).exceptions.map((e) => e.kind);
+    expect(before).not.toContain('supplierDelays');
+    const late = (await getSupplierOrders(suppliers[1])).orders[0];
+    await withSystem((tx) => tx.exec(`update supplier_purchase_orders set expected_delivery = current_date - 2 where id = $1`, [late.id]));
+    await withSystem(async (tx) => {
+      await tx.exec('alter table customer_invoices disable trigger customer_invoices_guard');
+      await tx.exec(`update customer_invoices set due_date = current_date - 1, issue_date = current_date - 10 where order_id = $1 and status in ('ISSUED','PARTLY_PAID')`, [orderId]);
+      await tx.exec('alter table customer_invoices enable trigger customer_invoices_guard');
+    });
+    const after = (await getMarketOverview(s.admin)).exceptions.map((e) => e.kind);
+    expect(after).toEqual(expect.arrayContaining(['supplierDelays', 'paymentDelays']));
   });
 
   it('shows the customer only their own invoices and payments', async () => {

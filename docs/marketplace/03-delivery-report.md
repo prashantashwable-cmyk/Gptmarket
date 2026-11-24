@@ -119,10 +119,18 @@ Tests: 12 new integration tests (34 marketplace integration tests in total).
 
 Tests: 115 / 115 (3 new purchase-order integration tests, 1 new unit test).
 
+## 3c. Release 4 — owner escalations and supplier performance
+
+- Exception queue now escalates **overdue AIEC customer invoices** and **late supplier deliveries** (brief section 12).
+- **Supplier performance score** (brief section 8): advisory 0–100 from AIEC records — acknowledgement within 48 hours (30%), on-time delivery against the supplier's own promised date (50%), accepted price submissions (20%); weights re-normalise when a part has no data; at least 3 events before a score is shown. Visible to the supplier and in admin (migration 0009 records the acknowledgement time).
+- Marathi payment terminology made consistent ("पेमेंट", partner payouts "भागीदार पेमेंट", invoices "बिल").
+
+Tests: 117 / 117.
+
 ## 4. Remaining limitations (honest list)
-1. **AIEC Contract chain** and supplier purchase orders are built (above). Not built: supplier RFQs (request for quotation), supplier performance score, and an automatic revenue/GST ledger export to accounting.
+1. **AIEC Contract chain** and supplier purchase orders are built (above). Not built: supplier RFQs (request for quotation) and an automatic revenue/GST ledger export to accounting.
 2. **Razorpay** checkout (payment links / orders API) needs merchant keys; only the signed webhook is implemented.
-3. **Supplier RFQs and performance score** (brief section 8) are not built; purchase orders, dispatch and ledger are.
+3. **Supplier RFQs** (brief section 8) are not built; purchase orders, dispatch, ledger and the performance score are.
 4. **Licensed partner bidding for AIEC-contract projects** (brief section 9) uses the existing invitation/quotation flow only.
 5. **Automation retry worker:** events are recorded with status, attempts and idempotency. A background retry of `FAILED` events is not implemented; failures appear in the exception queue.
 6. **PDF is English-only.** The standard PDF fonts cannot draw ₹ or Devanagari, so it uses "Rs.". The on-screen quotation is trilingual. A Devanagari PDF needs an embedded Unicode font and a text-shaping engine.

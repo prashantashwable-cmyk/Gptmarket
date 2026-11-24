@@ -166,3 +166,17 @@ describe('localized owner texts', () => {
     expect(localized(null, 'title', 'hi')).toBeNull();
   });
 });
+
+describe('supplier performance score', () => {
+  it('needs enough history, weights on-time delivery highest and re-normalises missing parts', async () => {
+    const { supplierScore } = await import('@/lib/supplier-score');
+    expect(supplierScore({ acknowledged: 1, acknowledgedOnTime: 1, delivered: 0, deliveredOnTime: 0, pricesReviewed: 1, pricesRejected: 0 }).score).toBeNull();
+    const perfect = supplierScore({ acknowledged: 4, acknowledgedOnTime: 4, delivered: 4, deliveredOnTime: 4, pricesReviewed: 4, pricesRejected: 0 });
+    expect(perfect).toMatchObject({ score: 100, ackRate: 100, onTimeRate: 100, priceAccuracy: 100, samples: 12 });
+    // on-time 50% (w50), ack 100% (w30), price 50% (w20) → (2500 + 3000 + 1000) / 100 = 65
+    expect(supplierScore({ acknowledged: 2, acknowledgedOnTime: 2, delivered: 2, deliveredOnTime: 1, pricesReviewed: 2, pricesRejected: 1 }).score).toBe(65);
+    // no deliveries yet: ack 100 (w30) and price 100 (w20) only
+    const early = supplierScore({ acknowledged: 2, acknowledgedOnTime: 2, delivered: 0, deliveredOnTime: 0, pricesReviewed: 2, pricesRejected: 0 });
+    expect(early).toMatchObject({ score: 100, onTimeRate: null });
+  });
+});
