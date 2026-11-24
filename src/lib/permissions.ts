@@ -14,6 +14,8 @@ export const PERMISSIONS = [
   'compliance.view', 'compliance.document.approve', 'compliance.manage',
   'qc.review', 'incident.manage', 'service.manage', 'dispute.manage',
   'user.manage', 'settings.manage', 'audit.view', 'report.view',
+  // lift marketplace (AIEC side)
+  'market.view', 'market.quote', 'catalogue.approve', 'package.manage', 'pricing.manage', 'pricing.approve', 'engineering.approve',
   // partner company side
   'company.manage', 'quotation.submit', 'order.accept', 'project.assign', 'milestone.update',
   'payment.evidence.submit', 'commission.view.own', 'team.manage', 'task.perform', 'evidence.submit',
@@ -32,7 +34,7 @@ const INTERNAL_ALL = PERMISSIONS.filter(
 );
 
 export const ROLE_SCOPE: Record<Role, 'INTERNAL' | 'COMPANY' | 'CUSTOMER'> = {
-  SUPER_ADMIN: 'INTERNAL', OPS_MANAGER: 'INTERNAL', CITY_MANAGER: 'INTERNAL', SALES_EXEC: 'INTERNAL', SURVEYOR: 'INTERNAL',
+  SUPER_ADMIN: 'INTERNAL', ENGINEER: 'INTERNAL', OPS_MANAGER: 'INTERNAL', CITY_MANAGER: 'INTERNAL', SALES_EXEC: 'INTERNAL', SURVEYOR: 'INTERNAL',
   FINANCE_COORD: 'INTERNAL', QC_COORD: 'INTERNAL',
   PARTNER_ADMIN: 'COMPANY', PARTNER_SUPERVISOR: 'COMPANY', TECHNICIAN: 'COMPANY', SUPPLIER: 'COMPANY', SERVICE_PARTNER: 'COMPANY',
   CUSTOMER: 'CUSTOMER',
@@ -47,7 +49,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'matching.run', 'quotation.invite', 'quotation.view.all', 'quotation.release',
     'order.view.all', 'order.manage', 'order.confirm', 'project.view.all', 'project.manage',
     'payment.reconcile', 'commission.view', 'compliance.view', 'service.manage', 'dispute.manage', 'incident.manage', 'report.view',
+    'market.view', 'market.quote', 'catalogue.approve', 'package.manage', 'pricing.manage',
   ],
+  /** Authorised lift engineer: decides on every final package quotation and activates compatibility rules. */
+  ENGINEER: ['market.view', 'engineering.approve'],
   CITY_MANAGER: [
     'lead.create', 'lead.view.city', 'lead.update', 'lead.qualify', 'lead.assign', 'customer.view',
     'survey.schedule', 'survey.review', 'partner.view', 'report.view',

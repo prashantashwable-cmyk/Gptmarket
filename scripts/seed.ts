@@ -20,6 +20,9 @@ import { giveFinanceConsent, saveLender } from '../src/server/services/finance';
 import { createTicket } from '../src/server/services/service';
 import { isoDateIST } from '../src/lib/format';
 import { loadEnv } from './migrate';
+import { seedMarketplace } from './seed-market';
+import { createShopProject, setCartOption, startConfiguration } from '../src/server/services/shop';
+import { requestQuotation } from '../src/server/services/market-quotes';
 
 export const DEMO_PDF = { name: 'demo-document.pdf', type: 'application/pdf', bytes: Buffer.from('%PDF-1.4\n% AIEC demo placeholder document\n%%EOF\n') };
 export const DEMO_PNG = {
@@ -222,6 +225,23 @@ export async function seedDemo(): Promise<void> {
   await markContacted(ops, lead3.id, 'Committee meeting scheduled');
   await createLead(null, leadInput({ name: 'Anita Patil (Demo Customer)', phone: '+919000000031', projectName: 'Shriram Residency A Wing', zoneId: wakad, address: 'Shriram Residency A-Wing, Pune' }));
   await createLead(null, leadInput({ name: 'City Care Hospital (Demo)', phone: '+919000000034', projectName: 'City Care Hospital', zoneId: await zoneId('PCMC'), customerType: 'COMMERCIAL_OWNER', buildingType: 'HOSPITAL', floors: 6, liftCategory: 'HOSPITAL_BED' }));
+  await withSystem((tx) => tx.exec('update leads set is_demo = true'));
+
+  // Lift marketplace: demo suppliers, approved products and prices, demo rules, four packages and a shopping customer.
+  await seedMarketplace(admin, { supplierCompanyId: supplierId, supplierPhone: '+919000000014' });
+  const shopProject = await createShopProject(customer1, {
+    projectName: 'Patil Residency C-Wing', address: 'Patil Residency C-Wing, Wakad, Pune', zoneId: wakad, buildingType: 'RESIDENTIAL_APARTMENT',
+    buildingAge: 'NEW', purpose: 'PASSENGER', persons: 6, ratedLoadKg: 408, speedMps: 1, floors: 5, stops: 5, usageFrequency: 'MEDIUM', accessibility: false,
+    shaftWidthMm: 1700, shaftDepthMm: 1900, pitDepthMm: 1500, overheadMm: 4200, powerSupply: 'THREE_PHASE', consentContact: true, consentPrivacy: true,
+  }, [DEMO_PNG]);
+  const standard = await withSystem((tx) => tx.one<{ id: string }>(`select v.id from package_versions v join lift_packages p on p.id = v.package_id where p.code = 'STANDARD' and v.status = 'PUBLISHED'`));
+  const cartId = await startConfiguration(customer1, { leadId: shopProject, packageVersionId: standard.id });
+  const finish = await withSystem((tx) => tx.one<{ slot_id: string; product_id: string }>(
+    `select s.id as slot_id, o.product_id from package_slots s join package_slot_options o on o.slot_id = s.id where s.version_id = $1 and s.category_code = 'FLOORING' and o.kind = 'UPGRADE'`, [standard.id]));
+  await setCartOption(customer1, { configId: cartId, slotId: finish.slot_id, productId: finish.product_id });
+  await requestQuotation(customer1, { configId: cartId, requestId: '00000000-0000-4000-8000-000000000001' });
+  await startConfiguration(customer1, { leadId: shopProject, packageVersionId: (await withSystem((tx) => tx.one<{ id: string }>(
+    `select v.id from package_versions v join lift_packages p on p.id = v.package_id where p.code = 'PREMIUM' and v.status = 'PUBLISHED'`))).id });
   await withSystem((tx) => tx.exec('update leads set is_demo = true'));
 
   await saveLender(s.finance, {

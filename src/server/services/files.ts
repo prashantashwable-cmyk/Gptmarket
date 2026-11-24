@@ -4,7 +4,7 @@ import { AppError } from '@/lib/errors';
 import type { Ctx } from '../ctx';
 import { withCtx, type Tx } from '../db';
 
-export type FileKind = 'LICENCE' | 'INSURANCE' | 'SURVEY' | 'QUOTATION' | 'CONTRACT' | 'WORK_EVIDENCE' | 'COLLECTION' | 'COMPLIANCE' | 'INCIDENT' | 'PRODUCT' | 'OTHER';
+export type FileKind = 'LICENCE' | 'INSURANCE' | 'SURVEY' | 'QUOTATION' | 'CONTRACT' | 'WORK_EVIDENCE' | 'COLLECTION' | 'COMPLIANCE' | 'INCIDENT' | 'PRODUCT' | 'OTHER' | 'SITE_PHOTO';
 
 const MAGIC: Record<string, (b: Buffer) => boolean> = {
   'application/pdf': (b) => b.subarray(0, 4).toString('latin1') === '%PDF',

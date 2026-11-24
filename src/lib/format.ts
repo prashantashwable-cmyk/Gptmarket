@@ -16,8 +16,10 @@ export function formatINR(value: string | number | null | undefined, _locale: Lo
   if (value === null || value === undefined || value === '') return '—';
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n)) return '—';
+  // Whole rupees show no decimals (₹6,00,000); any paise always show two digits (₹11,62,252.80).
+  const fraction = Math.round(n * 100) % 100 !== 0 ? 2 : 0;
   return new Intl.NumberFormat(NUMBERS, {
-    style: 'currency', currency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 2,
+    style: 'currency', currency: 'INR', minimumFractionDigits: fraction, maximumFractionDigits: fraction,
   }).format(n);
 }
 

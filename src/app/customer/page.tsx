@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
+import { Plus, ShoppingCart } from 'lucide-react';
 import { Card, EmptyState, LinkButton, PageHeader, StatusBadge } from '@/components/ui';
 import { formatDate } from '@/lib/format';
 import { load, pageCtx } from '@/server/page';
@@ -12,6 +12,10 @@ export default async function CustomerHome() {
     <>
       <PageHeader title={t('nav.myProjects')} subtitle={t('p.customerHome.subtitle')}
         actions={<LinkButton href="/customer/new" size="sm"><Plus className="size-4" aria-hidden />{t('nav.newRequirement')}</LinkButton>} />
+      <Link href="/customer/shop" className="mb-5 flex items-center gap-3 rounded-xl border border-brand-200 bg-brand-50 p-4 hover:shadow-sm">
+        <ShoppingCart className="size-6 shrink-0 text-brand-700" aria-hidden />
+        <span><span className="block font-semibold text-slate-900">{t('mk.home.banner')}</span><span className="block text-sm text-slate-700">{t('mk.home.bannerHint')}</span></span>
+      </Link>
       {leads.length === 0 ? (
         <Card><EmptyState title={t('p.customerHome.empty')} hint={t('p.customerHome.emptyHint')} action={<LinkButton href="/customer/new">{t('nav.newRequirement')}</LinkButton>} /></Card>
       ) : (

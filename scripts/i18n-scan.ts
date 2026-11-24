@@ -27,7 +27,7 @@ export function scan(root = 'src') {
     const src = readFileSync(file, 'utf8');
     for (const m of src.matchAll(/\bt\(\s*'([a-zA-Z0-9_.]+)'/g)) staticKeys.add(m[1]);
     for (const m of src.matchAll(/\bt\(\s*`([a-zA-Z0-9_.]+)\.\$\{/g)) prefixes.add(m[1]);
-    for (const m of src.matchAll(/message:\s*(?:[a-z.]+\s*\?\s*)?'((?:m|common|auth|enquiry)\.[a-zA-Z0-9_.]+)'/g)) staticKeys.add(m[1]);
+    for (const m of src.matchAll(/message:\s*(?:[a-z.]+\s*\?\s*)?'((?:m|mk|common|auth|enquiry)\.[a-zA-Z0-9_.]+)'/g)) staticKeys.add(m[1]);
     for (const m of src.matchAll(/AppError\(\s*'([A-Z_]+)'/g)) errorCodes.add(m[1]);
     for (const m of src.matchAll(/(?:fail|throw new AppError)\(\s*(?:GATE_ERRORS\[[^\]]+\] \?\? )?'([A-Z_]+)'/g)) errorCodes.add(m[1]);
     for (const m of src.matchAll(/: '([A-Z_]{4,})'(?=[,}\n ])/g)) if (/fieldErrors|missing|GATE_ERRORS|= \{/.test(src)) void m;

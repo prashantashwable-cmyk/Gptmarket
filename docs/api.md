@@ -77,3 +77,13 @@ Each alert is raised once per record (and once per threshold for expiries), trac
 | `INVOICE_OVERDUE` | Commission invoice issued and past its due date | The partner and staff who invoice |
 | `TICKET_ACK_OVERDUE` | Complaint still `OPEN` after its acknowledgement target | Service staff |
 | `CORRECTIVE_ACTION_OVERDUE` | Open corrective action past its due date | The company and QC staff |
+
+## Lift marketplace
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/market/quotations/{id}/pdf[?version=n]` | PDF of a package quotation version for its customer or AIEC staff (generated from the immutable snapshot; English) |
+
+Marketplace writes are server actions in `src/app/actions/market.ts`, calling the services listed in
+`docs/marketplace/03-delivery-report.md`. `POST /api/jobs/housekeeping` now also expires package
+quotations past their validity date (`marketQuotationsExpired` in the response).

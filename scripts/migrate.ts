@@ -3,7 +3,8 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { Client } from 'pg';
-import { ROLES, ZONES } from '../src/lib/enums';
+import { COMPONENT_CATEGORY, CUSTOMER_EDITABLE_CATEGORIES, PACKAGE_CODE, ROLES, SAFETY_CRITICAL_CATEGORIES, ZONES } from '../src/lib/enums';
+import { DEFAULT_COMPAT_PARAMS } from '../src/lib/compatibility';
 import { DEFAULT_ROLE_PERMISSIONS, PERMISSIONS, ROLE_SCOPE } from '../src/lib/permissions';
 
 export function loadEnv(): void {
@@ -73,6 +74,21 @@ export async function migrate(connectionString: string, opts: { reset?: boolean;
     for (const zone of ZONES) {
       await client.query('insert into zones (code, city) values ($1, $2) on conflict (code) do nothing', [zone, zone === 'PUNE' ? 'Pune' : 'Pune / PCMC']);
     }
+    // Marketplace reference data. No prices: pricing rules and supplier prices are created and approved in the app.
+    for (const [i, code] of COMPONENT_CATEGORY.entries()) {
+      await client.query(
+        `insert into component_categories (code, sort, is_safety_critical, customer_editable) values ($1, $2, $3, $4)
+         on conflict (code) do update set sort = excluded.sort, is_safety_critical = excluded.is_safety_critical, customer_editable = excluded.customer_editable`,
+        [code, i, SAFETY_CRITICAL_CATEGORIES.includes(code), CUSTOMER_EDITABLE_CATEGORIES.includes(code)]);
+    }
+    for (const [i, code] of PACKAGE_CODE.entries()) {
+      await client.query('insert into lift_packages (code, tier) values ($1, $2) on conflict (code) do nothing', [code, i + 1]);
+    }
+    // Draft engineering parameters. They do nothing until an authorised engineer reviews and activates them.
+    await client.query(
+      `insert into compatibility_rule_versions (version_no, status, params, note)
+       select 1, 'DRAFT', $1, 'Default pilot draft. Must be confirmed by AIEC''s authorised lift engineer against IS 14665, applicable BIS standards and the Maharashtra Lifts, Escalators and Moving Walks Rules, 2026 before activation.'
+        where not exists (select 1 from compatibility_rule_versions)`, [JSON.stringify(DEFAULT_COMPAT_PARAMS)]);
     await client.query(
       `insert into matching_rule_versions (version, w_compliance, w_capability, w_capacity, w_performance, w_price, w_response, is_active)
        select 1, 25, 20, 20, 15, 10, 10, true where not exists (select 1 from matching_rule_versions)`,

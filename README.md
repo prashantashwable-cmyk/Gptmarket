@@ -7,6 +7,12 @@ collections and AIEC's commission.
 
 The whole application is available in **English, Hindi and Marathi**.
 
+**New: AIEC Lift Marketplace.** Customers shop for ready-made lift packages (Basic, Standard,
+Premium, Luxury), customise them with AIEC-approved supplier options, see live pricing and an
+engineering compatibility check (green / yellow / red), and receive versioned PDF quotations that
+an authorised engineer must approve. See `docs/marketplace/` (audit, architecture, delivery
+report, compliance matrix, owner manual).
+
 > **Status: pilot build with sandbox adapters.** No SMS, WhatsApp, payment, bank, lender, e-sign or
 > maps provider is connected. Every such place is labelled as a sandbox on screen and in the data.
 > Nothing in the demo data is a real company, licence, customer, payment or lender.
@@ -37,6 +43,7 @@ collections by default). Order confirmation in the app never means a statutory p
 | Technician app | Mobile web app that works offline: attendance, safety checklist, task progress, photos, material use, hazard reports |
 | Governance | Roles and permissions, tenant isolation in the database, audit log, notifications, settings, reports |
 | API | REST routes from the specification, bank-reconciliation webhook, housekeeping job |
+| Lift marketplace | Packages with frozen versions, approved supplier catalogue (supplier, product and price approved separately), versioned pricing and engineering rules, customer cart and comparison, immutable quotation versions with PDF, engineer and owner approvals, execution model per project, exception queue |
 
 ## What is sandbox only
 
@@ -77,6 +84,8 @@ Open `/login` and use a demo sign-in button, or enter a demo phone number and th
 | Partner admin (two partners) | +91 90000 00011, 00012 | `/partner` |
 | Partner supervisor | +91 90000 00021 | `/partner` |
 | Technician | +91 90000 00022 | `/tech` |
+| Authorised lift engineer | +91 90000 00008 | `/admin/marketplace` |
+| Supplier admin (two suppliers) | +91 90000 00014, 00015 | `/partner/marketplace` |
 | Customer | +91 90000 00031, 00032 | `/customer` |
 
 ## Checks
@@ -89,6 +98,7 @@ npm test                          # unit + integration tests (wipes and uses TES
 npm run build && npm start        # production build
 node scripts/smoke.mjs SUPER_ADMIN mr -   # visits every navigation link as a demo role in a language
 npm run e2e                       # technician offline flow in a real browser (needs freshly seeded data)
+node scripts/e2e-shop.mjs <outDir>   # lift shop flow in a real browser: project → package → cart → quotation → PDF
 BASE_URL=https://your-host npm run probe   # black-box security probe, safe to run against a deployed URL
 ```
 
@@ -142,6 +152,7 @@ To run the real application, use a Node.js host with PostgreSQL (see Deployment 
 
 ## Documentation
 
+- `docs/marketplace/` – lift marketplace audit, architecture, delivery report, compliance matrix and owner manual
 - `docs/business-blueprint.md` – locked business decisions, revenue model and boundaries
 - `docs/product-requirements.md` – specification requirements mapped to screens and services
 - `docs/operations-sops.md` – draft operating procedures for the pilot

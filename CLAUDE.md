@@ -55,8 +55,14 @@ lint clean, README, `docs/` and CI workflow, scheduled reminders (`src/server/se
 Before every push run: `npx tsc --noEmit && npm run lint && npx tsx scripts/i18n-scan.ts && npm test && npx next build`.
 `npm test` wipes `TEST_DATABASE_URL`. `npm run e2e` needs freshly seeded demo data and a running server.
 
+Lift marketplace (added on top, see `docs/marketplace/03-delivery-report.md`): migration `0005_marketplace.sql`, engines `src/lib/pricing.ts` and
+`src/lib/compatibility.ts`, services `catalogue`, `packages`, `rules`, `market-engine`, `shop`, `market-quotes`, `market-admin`, `automation`, `quotation-pdf`,
+actions `src/app/actions/market.ts`, screens `/customer/shop/*`, `/admin/marketplace/*`, `/partner/marketplace`, dictionaries `src/i18n/messages/*/market.ts`.
+Supplier costs and pricing rules are read only on the trusted path (`market-engine.ts`); never return them to customers. 100 tests.
+Next: AIEC-contract order/invoice/payout chain, Razorpay (after merchant onboarding), supplier RFQ/dispatch/ledger, automation retry worker.
+
 Open items (need the owner, not code): see README "Before going live" and `docs/compliance-register.md`.
 Not built: real SMS / WhatsApp / lender / payment / e-sign / maps integrations, PostGIS, native mobile apps, object storage.
 
 ## Git
-Branch `ccr-0e00fcb6-z6bogs`, draft PR #1. Commit and push after each verified stage. Do not put model names in commits or PR text.
+Repository `Gptmarket`, branch `ccr-65a1f96e-irtczp`. Commit and push after each verified stage. Do not put model names in commits or PR text.

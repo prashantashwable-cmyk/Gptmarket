@@ -115,7 +115,7 @@ export const DISPUTE_KIND = ['PAYMENT', 'COMMISSION', 'QUALITY', 'SERVICE', 'OTH
 export const DISPUTE_STATUS = ['OPEN', 'UNDER_REVIEW', 'RESOLVED', 'REJECTED'] as const;
 
 export const INTERNAL_ROLES = [
-  'SUPER_ADMIN', 'OPS_MANAGER', 'CITY_MANAGER', 'SALES_EXEC', 'SURVEYOR', 'FINANCE_COORD', 'QC_COORD',
+  'SUPER_ADMIN', 'OPS_MANAGER', 'CITY_MANAGER', 'SALES_EXEC', 'SURVEYOR', 'FINANCE_COORD', 'QC_COORD', 'ENGINEER',
 ] as const;
 export const COMPANY_ROLES = ['PARTNER_ADMIN', 'PARTNER_SUPERVISOR', 'TECHNICIAN', 'SUPPLIER', 'SERVICE_PARTNER'] as const;
 export const ROLES = [...INTERNAL_ROLES, ...COMPANY_ROLES, 'CUSTOMER'] as const;
@@ -126,3 +126,50 @@ export const ZONES = [
   'PUNE', 'PCMC', 'WAKAD', 'HINJAWADI', 'BANER', 'BALEWADI', 'RAVET', 'TATHAWADE', 'CHAKAN', 'TALEGAON',
 ] as const;
 export type ZoneCode = (typeof ZONES)[number];
+
+// ───────────── AIEC Lift Marketplace ─────────────
+/** Component categories of a lift package. Safety-critical ones can never be removed or swapped by a customer. */
+export const COMPONENT_CATEGORY = [
+  'MACHINE', 'CONTROLLER', 'CAR_CABIN', 'CABIN_FINISH', 'FLOORING', 'CEILING', 'LIGHTING', 'COP_LOP', 'DISPLAY',
+  'CAR_DOOR', 'LANDING_DOOR', 'DOOR_FINISH', 'GUIDE_RAILS', 'ROPES', 'SAFETY_GEAR', 'GOVERNOR', 'BUFFERS', 'DOOR_LOCKS',
+  'ARD', 'ADD_ON',
+] as const;
+export type ComponentCategory = (typeof COMPONENT_CATEGORY)[number];
+export const SAFETY_CRITICAL_CATEGORIES: readonly ComponentCategory[] = [
+  'GUIDE_RAILS', 'ROPES', 'SAFETY_GEAR', 'GOVERNOR', 'BUFFERS', 'DOOR_LOCKS', 'ARD',
+];
+/** Categories a customer may choose between approved options for (brief section 5, screen 5). */
+export const CUSTOMER_EDITABLE_CATEGORIES: readonly ComponentCategory[] = [
+  'MACHINE', 'CONTROLLER', 'CAR_CABIN', 'CABIN_FINISH', 'FLOORING', 'CEILING', 'LIGHTING', 'COP_LOP', 'DISPLAY', 'DOOR_FINISH', 'ADD_ON',
+];
+export const PACKAGE_CODE = ['BASIC', 'STANDARD', 'PREMIUM', 'LUXURY'] as const;
+export type PackageCode = (typeof PACKAGE_CODE)[number];
+export const PACKAGE_STATUS = ['DRAFT', 'PUBLISHED', 'RETIRED'] as const;
+export const OPTION_KIND = ['STANDARD', 'UPGRADE', 'ALTERNATIVE'] as const;
+export type OptionKind = (typeof OPTION_KIND)[number];
+export const PRICE_UNIT = ['EACH', 'PER_STOP', 'PER_TRAVEL_METRE'] as const;
+export type PriceUnit = (typeof PRICE_UNIT)[number];
+export const SUPPLIER_STATUS = ['PENDING', 'VERIFIED', 'APPROVED', 'PREFERRED', 'SUSPENDED'] as const;
+export type SupplierStatus = (typeof SUPPLIER_STATUS)[number];
+export const PRODUCT_STATUS = ['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'SUSPENDED'] as const;
+export type ProductStatus = (typeof PRODUCT_STATUS)[number];
+export const PRICE_STATUS = ['SUBMITTED', 'APPROVED', 'REJECTED', 'SUPERSEDED'] as const;
+export const RULE_STATUS = ['DRAFT', 'ACTIVE', 'RETIRED'] as const;
+export const LIFT_PURPOSE = ['PASSENGER', 'HOME', 'GOODS', 'HOSPITAL', 'ACCESSIBLE'] as const;
+export type LiftPurpose = (typeof LIFT_PURPOSE)[number];
+export const USAGE_FREQUENCY = ['LOW', 'MEDIUM', 'HIGH'] as const;
+export const BUILDING_AGE = ['NEW', 'EXISTING'] as const;
+export const POWER_SUPPLY = ['SINGLE_PHASE', 'THREE_PHASE', 'UNKNOWN'] as const;
+export type PowerSupply = (typeof POWER_SUPPLY)[number];
+export const CONFIG_STATUS = ['CART', 'SAVED', 'QUOTED', 'ARCHIVED'] as const;
+export const MARKET_QUOTATION_STATUS = [
+  'ESTIMATE', 'PENDING_ENGINEERING', 'PENDING_OWNER_APPROVAL', 'ISSUED', 'ACCEPTED', 'DECLINED', 'REJECTED', 'EXPIRED', 'CANCELLED',
+] as const;
+export type MarketQuotationStatus = (typeof MARKET_QUOTATION_STATUS)[number];
+export const PRICE_BASIS = ['ESTIMATED', 'FINAL'] as const;
+export const SPEC_SOURCE = ['DECLARED', 'SURVEYED'] as const;
+export const COMPAT_LEVEL = ['GREEN', 'YELLOW', 'RED'] as const;
+export type CompatLevel = (typeof COMPAT_LEVEL)[number];
+export const EXECUTION_MODEL = ['AIEC_CONTRACT', 'MARKETPLACE'] as const;
+export type ExecutionModel = (typeof EXECUTION_MODEL)[number];
+export const APPROVAL_KIND = ['ENGINEERING', 'PRICING_EXCEPTION'] as const;

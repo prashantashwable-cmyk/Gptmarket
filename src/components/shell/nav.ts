@@ -1,10 +1,11 @@
 import type { Ctx, Portal } from '@/server/ctx';
 import type { Permission } from '@/lib/permissions';
 
-export interface NavItem { key: string; href: string; icon: string; anyOf?: Permission[] }
+export interface NavItem { key: string; href: string; icon: string; anyOf?: Permission[]; supplierOnly?: boolean }
 
 const ADMIN: NavItem[] = [
   { key: 'dashboard', href: '/admin', icon: 'LayoutDashboard' },
+  { key: 'marketplace', href: '/admin/marketplace', icon: 'Store', anyOf: ['market.view'] },
   { key: 'leads', href: '/admin/leads', icon: 'ClipboardList', anyOf: ['lead.view.all', 'lead.view.city', 'lead.view.assigned'] },
   { key: 'customers', href: '/admin/customers', icon: 'Users', anyOf: ['customer.view'] },
   { key: 'surveys', href: '/admin/surveys', icon: 'Ruler', anyOf: ['survey.schedule', 'survey.review', 'survey.perform'] },
@@ -40,10 +41,12 @@ const PARTNER: NavItem[] = [
   { key: 'commissions', href: '/partner/commissions', icon: 'IndianRupee', anyOf: ['commission.view.own'] },
   { key: 'service', href: '/partner/service', icon: 'Wrench', anyOf: ['service.perform'] },
   { key: 'catalogue', href: '/partner/catalogue', icon: 'Boxes', anyOf: ['catalogue.manage'] },
+  { key: 'supplierCatalogue', href: '/partner/marketplace', icon: 'Store', anyOf: ['catalogue.manage'], supplierOnly: true },
   { key: 'notifications', href: '/partner/notifications', icon: 'Bell' },
 ];
 const CUSTOMER: NavItem[] = [
   { key: 'myProjects', href: '/customer', icon: 'LayoutDashboard' },
+  { key: 'liftShop', href: '/customer/shop', icon: 'ShoppingCart' },
   { key: 'newRequirement', href: '/customer/new', icon: 'CirclePlus' },
   { key: 'customerFinance', href: '/customer/finance', icon: 'Landmark' },
   { key: 'customerService', href: '/customer/service', icon: 'Wrench' },
@@ -59,5 +62,6 @@ const TECH: NavItem[] = [
 
 export function navFor(portal: Portal, ctx: Ctx): NavItem[] {
   const items = { admin: ADMIN, partner: PARTNER, customer: CUSTOMER, tech: TECH }[portal];
-  return items.filter((item) => !item.anyOf || item.anyOf.some((p) => ctx.permissions.has(p)));
+  const supplier = ctx.companyCategory === 'SUPPLIER' || ctx.companyCategory === 'MANUFACTURER';
+  return items.filter((item) => (!item.anyOf || item.anyOf.some((p) => ctx.permissions.has(p))) && (!item.supplierOnly || supplier));
 }
