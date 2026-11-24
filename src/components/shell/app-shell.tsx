@@ -8,6 +8,7 @@ import { portalsFor, type Ctx, type Portal } from '@/server/ctx';
 import { unreadCount } from '@/server/services/notifications';
 import { navFor } from './nav';
 import { NavLinks } from './nav-links';
+import { BottomNav } from './bottom-nav';
 import { LogoutButton } from './logout-button';
 
 export async function AppShell({ portal, ctx, children }: { portal: Portal; ctx: Ctx; children: ReactNode }) {
@@ -21,16 +22,16 @@ export async function AppShell({ portal, ctx, children }: { portal: Portal; ctx:
 
   return (
     <div className="min-h-screen lg:flex">
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-sidebar text-sidebar-fg backdrop-blur lg:flex">
-        <div className="px-4 py-4">
-          <Link href={`/${portal}`} className="text-sidebar-strong"><Logo tagline={t(`portal.${portal}`)} /></Link>
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-sidebar text-sidebar-fg lg:flex">
+        <div className="border-b border-white/10 px-4 py-4">
+          <Link href={`/${portal}`} className="text-white"><Logo tagline={t(`portal.${portal}`)} /></Link>
         </div>
         <nav className="flex-1 overflow-y-auto px-2 pb-4" aria-label={t('common.menu')}>
           <NavLinks items={items} unread={unread} />
         </nav>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 border-b border-slate-200 bg-surface backdrop-blur">
+        <header className="sticky top-0 z-20 border-b border-slate-200 bg-surface/95 backdrop-blur">
           <div className="flex items-center justify-between gap-3 px-4 py-2.5">
             <div className="flex min-w-0 items-center gap-3">
               <Link href={`/${portal}`} className="text-slate-900 lg:hidden"><Logo /></Link>
@@ -49,12 +50,9 @@ export async function AppShell({ portal, ctx, children }: { portal: Portal; ctx:
               <LogoutButton />
             </div>
           </div>
-          <div className="border-t border-slate-100 px-4 py-1.5 md:hidden"><LanguageSwitcher /></div>
-          <nav className="border-t border-slate-200 bg-sidebar text-sidebar-fg lg:hidden" aria-label={t('common.menu')}>
-            <NavLinks items={items} unread={unread} horizontal />
-          </nav>
         </header>
-        <main id="main" className="min-w-0 flex-1 px-4 py-5 sm:px-6 lg:px-8">{children}</main>
+        <main id="main" className="min-w-0 flex-1 px-4 pt-5 pb-24 sm:px-6 lg:px-8 lg:pb-8">{children}</main>
+        <BottomNav items={items} unread={unread} />
       </div>
     </div>
   );

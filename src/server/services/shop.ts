@@ -125,7 +125,7 @@ export async function getShopProject(ctx: Ctx, leadId: string) {
     const spec = await tx.maybeOne<Rec>('select * from market_project_specs where lead_id = $1', [leadId]);
     const photos = await tx.query<Rec>('select id, file_id, created_at from market_site_photos where lead_id = $1 order by created_at', [leadId]);
     const configurations = await tx.query<Rec>(
-      `select c.*, v.title as package_title, p.code as package_code, q.id as quotation_id, q.status as quotation_status
+      `select c.*, v.title as package_title, v.title_hi as package_title_hi, v.title_mr as package_title_mr, p.code as package_code, q.id as quotation_id, q.status as quotation_status
          from configurations c join package_versions v on v.id = c.package_version_id join lift_packages p on p.id = v.package_id
          left join market_quotations q on q.configuration_id = c.id where c.lead_id = $1 and c.status <> 'ARCHIVED' order by c.created_at`, [leadId]);
     const survey = await tx.maybeOne<Rec>('select status, scheduled_at, reviewed_at from site_surveys where lead_id = $1 order by created_at desc limit 1', [leadId]);

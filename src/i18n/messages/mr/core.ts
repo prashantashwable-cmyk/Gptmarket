@@ -7,6 +7,7 @@ export const core = {
     login: 'साइन इन',
     logout: 'साइन आउट',
     menu: 'मेनू',
+    more: 'अधिक',
     close: 'बंद करा',
     back: 'मागे',
     save: 'जतन करा',

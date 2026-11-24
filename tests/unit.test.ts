@@ -163,8 +163,10 @@ describe('roles, themes and translations', () => {
     expect(DEFAULT_ROLE_PERMISSIONS.SALES_EXEC).not.toContain('payment.reconcile');
     expect(new Set(PERMISSIONS).size).toBe(PERMISSIONS.length);
   });
-  it('defines ten themes including the default', () => {
-    expect(THEMES).toHaveLength(10);
+  it('defines eleven themes with unique ids, and the default is the AIEC navy & gold brand theme', () => {
+    expect(THEMES).toHaveLength(11);
+    expect(new Set(THEMES.map((t) => t.id)).size).toBe(THEMES.length);
+    expect(DEFAULT_THEME).toBe('aiec');
     expect(THEMES.some((t) => t.id === DEFAULT_THEME)).toBe(true);
   });
   it('has identical keys and placeholders in English, Hindi and Marathi, with no empty text', () => {

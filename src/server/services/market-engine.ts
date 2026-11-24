@@ -175,6 +175,8 @@ export function customerView(e: Evaluation) {
     packageVersion: {
       id: e.packageVersion.id, code: e.packageVersion.code, title: e.packageVersion.title, versionNo: e.packageVersion.version_no,
       warrantyMonths: e.packageVersion.warranty_months, features: e.packageVersion.features, exclusions: e.packageVersion.exclusions,
+      title_hi: e.packageVersion.title_hi, title_mr: e.packageVersion.title_mr, features_hi: e.packageVersion.features_hi, features_mr: e.packageVersion.features_mr,
+      exclusions_hi: e.packageVersion.exclusions_hi, exclusions_mr: e.packageVersion.exclusions_mr,
     },
     spec: e.spec.spec, zoneCode: e.spec.zoneCode,
     slots: e.slots.map((s) => ({ ...s, line: priced.get(s.slotId) ? { quantity: priced.get(s.slotId)!.quantity, customerPrice: priced.get(s.slotId)!.customerPrice, upgradeCharge: priced.get(s.slotId)!.upgradeCharge } : null })),

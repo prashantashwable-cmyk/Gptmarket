@@ -33,7 +33,7 @@ export async function requireUser(): Promise<Ctx> {
   return ctx;
 }
 
-export const PORTAL_HOME: Record<Portal, string> = { admin: '/admin', partner: '/partner', tech: '/tech', customer: '/customer' };
+export const PORTAL_HOME: Record<Portal, string> = { admin: '/admin', partner: '/partner', tech: '/tech', customer: '/customer/shop' };
 
 /** Guards a workspace: unauthenticated → /login, wrong workspace → the user's own workspace chooser. */
 export async function requirePortal(portal: Portal): Promise<Ctx> {

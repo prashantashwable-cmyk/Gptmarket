@@ -20,9 +20,9 @@ export async function SiteFooter() {
           <p className="mt-4 max-w-md text-sm">{t('footer.about')}</p>
           <p className="mt-2 max-w-md text-sm">{t('footer.disclaimer')}</p>
         </div>
-        {column(t('landing.custTitle'), [['/enquiry', t('site.requestQuote')], ['/#how-it-works', t('site.howItWorks')], ['/#finance', t('site.finance')]])}
-        {column(t('landing.partTitle'), [['/login', t('site.partnerLogin')], ['/#partners', t('site.forPartners')], ['/#areas', t('site.areas')]])}
-        {column(t('footer.quickLinks'), [['/login', t('common.login')], ['/privacy', t('footer.privacy')]])}
+        {column(t('landing.custTitle'), [['/customer/shop', t('store.hero.primary')], ['/#packages', t('store.nav.packages')], ['/#how', t('store.nav.how')], ['/enquiry', t('store.hero.secondary')]])}
+        {column(t('store.nav.partners'), [['/onboarding/partner', t('store.join.cta')], ['/login', t('site.partnerLogin')], ['/#partners', t('store.join.title')]])}
+        {column(t('footer.quickLinks'), [['/#faq', t('store.nav.faq')], ['/login', t('common.login')], ['/privacy', t('footer.privacy')]])}
       </div>
       <div className="border-t border-white/10">
         <p className="mx-auto max-w-6xl px-4 py-4 text-xs">{t('footer.rights', { year: new Date().getFullYear() })}</p>

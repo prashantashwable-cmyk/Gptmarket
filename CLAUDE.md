@@ -31,9 +31,12 @@ The product specification is `AIEC_National_Elevator_Marketplace_Claude_Code_Mas
 - `npx tsx scripts/i18n-scan.ts` must report `0 missing`. Amounts always use `formatINR` (Indian grouping, Latin digits).
 
 ## Design / themes
-- All colours, radii and fonts are tokens. Themes live in `src/lib/themes.ts`; `DEFAULT_THEME = 'enterprise'` (Aerchain-style). Change that one constant to switch.
+- All colours, radii and fonts are tokens. Themes live in `src/lib/themes.ts`; `DEFAULT_THEME = 'aiec'` (owner's brief: deep navy, metallic silver, subtle gold). Change that one constant to switch.
+- App shell: navy sidebar on desktop; on phones a bottom tab bar (`src/components/shell/bottom-nav.tsx`, items flagged `tab: true` in `nav.ts`, max 4 + "More" sheet with the language switcher). Fixed bottom bars on pages must sit at `bottom-16` on mobile.
+- Public storefront: `src/app/page.tsx` + `src/components/site/storefront.tsx`, strings in `src/i18n/messages/*/store.ts`; package cards read live published packages (never hard-coded features or prices).
+- Owner-entered package texts have `_hi` / `_mr` columns (migration 0007); render them with `localized(row, field, locale)` from `src/lib/localized.ts` (falls back to English). Supplier-entered product names are shown as typed.
 - Use token classes (`bg-surface`, `text-on-brand`, `bg-sidebar`, `bg-ink`, `brand-*`, `accent-*`, `slate-*`), never raw `bg-white` or hex colours.
-- Ten options are captured in `docs/design-options/`; gallery at `/design` (sandbox only).
+- Earlier design options are in `docs/design-options/`; gallery at `/design` (sandbox only).
 
 ## Commands
 ```

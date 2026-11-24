@@ -1,3 +1,4 @@
+import { localized } from '@/lib/localized';
 import { CompatPanel, PriceSummary, SpecList } from '@/components/market/views';
 import { Alert, Badge, Section, StatusBadge } from '@/components/ui';
 import type { TFunction } from '@/i18n';
@@ -49,7 +50,7 @@ export function QuotationDocument({ t, locale, quotation, version, approvals }: 
           <div><dt className="text-xs text-slate-500">{t('mk.quote.customer')}</dt><dd className="font-medium">{snap.customer.name} · {snap.customer.phone}</dd></div>
           <div><dt className="text-xs text-slate-500">{t('mk.quote.project')}</dt><dd className="font-medium">{snap.project.projectName} ({snap.project.leadNumber})</dd>
             <dd className="text-slate-600">{snap.project.address} · {t(`zone.${snap.project.zoneCode}`)}</dd></div>
-          <div><dt className="text-xs text-slate-500">{t('mk.quote.package')}</dt><dd className="font-medium">{snap.package.title} · v{snap.package.versionNo}</dd></div>
+          <div><dt className="text-xs text-slate-500">{t('mk.quote.package')}</dt><dd className="font-medium">{localized(snap.package, 'title', locale)} · v{snap.package.versionNo}</dd></div>
           <div><dt className="text-xs text-slate-500">{t('mk.quote.rules')}</dt><dd className="text-slate-700">{t('mk.quote.rulesValue', { p: snap.rules.pricingVersion, c: snap.rules.compatibilityVersion })}</dd></div>
         </dl>
       </Section>
@@ -89,8 +90,8 @@ export function QuotationDocument({ t, locale, quotation, version, approvals }: 
       <div className="grid gap-5 md:grid-cols-2">
         <Section title={t('mk.quote.warrantyTitle')}>
           <p className="text-sm">{t('mk.quote.warrantyText', { months: snap.package.warrantyMonths })}</p>
-          {snap.package.exclusions && <><p className="mt-3 text-sm font-medium">{t('mk.cat.excluded')}</p>
-            <ul className="mt-1 list-disc pl-5 text-sm text-slate-700">{String(snap.package.exclusions).split('\n').filter(Boolean).map((x: string) => <li key={x}>{x}</li>)}</ul></>}
+          {localized(snap.package, 'exclusions', locale) && <><p className="mt-3 text-sm font-medium">{t('mk.cat.excluded')}</p>
+            <ul className="mt-1 list-disc pl-5 text-sm text-slate-700">{String(localized(snap.package, 'exclusions', locale)).split('\n').filter(Boolean).map((x: string) => <li key={x}>{x}</li>)}</ul></>}
           <p className="mt-3 text-xs text-slate-600">{t('mk.quote.statutory')}</p>
         </Section>
         <Section title={t('mk.quote.technical')}>

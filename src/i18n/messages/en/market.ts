@@ -355,6 +355,7 @@ export const market = {
       approvedProducts: 'Approved products', reason: 'Reason', allProducts: 'All products ({count})', suspend: 'Suspend', reinstate: 'Reinstate',
     },
     pkg: {
+      translations: 'Hindi and Marathi texts', translationsHint: 'Shown to customers who use the app in Hindi or Marathi. Empty fields fall back to English.',
       subtitle: 'Published versions are frozen. Changes are made in a new draft version.', newDraft: 'New draft version', none: 'No versions yet.', slots: '{count} components',
       locked: 'This version is not a draft and cannot be changed.', slotsTitle: 'Components and options', slotsHint: 'Each mandatory component needs exactly one standard option. Safety components are always mandatory and locked.',
       optional: 'Optional', editable: 'Customer can choose', kind: 'Option type', addOption: 'Add option', newSlot: 'New component', mandatory: 'Mandatory', addSlot: 'Add component',

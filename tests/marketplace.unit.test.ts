@@ -154,3 +154,15 @@ describe('compatibility engine', () => {
     expect(codes(r, 'RED')).toContain('SAFETY_RATING_SPEED');
   });
 });
+
+describe('localized owner texts', () => {
+  it('uses the Hindi or Marathi version when present and falls back to English otherwise', async () => {
+    const { localized } = await import('@/lib/localized');
+    const row = { title: 'AIEC Basic', title_hi: 'AIEC बेसिक', title_mr: '  ', features: 'A' };
+    expect(localized(row, 'title', 'hi')).toBe('AIEC बेसिक');
+    expect(localized(row, 'title', 'mr')).toBe('AIEC Basic');
+    expect(localized(row, 'title', 'en')).toBe('AIEC Basic');
+    expect(localized(row, 'features', 'hi')).toBe('A');
+    expect(localized(null, 'title', 'hi')).toBeNull();
+  });
+});

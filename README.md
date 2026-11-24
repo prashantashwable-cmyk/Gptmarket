@@ -114,8 +114,10 @@ shown as typed and is not translated.
 
 ## Look and feel
 
-All colours, radii and fonts are tokens. Ten themes are defined in `src/lib/themes.ts`; change
-`DEFAULT_THEME` to switch. Previews are in `docs/design-options/` and, in sandbox mode, at `/design`.
+All colours, radii and fonts are tokens. The default theme is **AIEC Navy & Gold** (white surfaces,
+deep navy, metallic silver, subtle gold). Eleven themes are defined in `src/lib/themes.ts`; change
+`DEFAULT_THEME` to switch. On phones every workspace uses a native-style bottom tab bar, and the app
+is installable (web app manifest). Previews are in `docs/design-options/` and, in sandbox mode, at `/design`.
 
 ## Deployment
 

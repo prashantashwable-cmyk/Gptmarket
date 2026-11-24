@@ -25,10 +25,10 @@ await page.waitForURL(/packages/, { timeout: 30000 }).catch(async (e) => { await
 await page.screenshot({ path: `${out}/1-packages.png`, fullPage: true });
 await page.locator('button:has-text("Customise this package")').nth(1).click();
 await page.waitForURL(/cart/, { timeout: 30000 });
-const before = await page.locator('.fixed.bottom-0 .text-lg').innerText();
+const before = await page.locator('.fixed.bottom-16 .text-lg').innerText();
 await page.locator('li:has-text("Gold mirror") button:has-text("Choose")').click();
-await page.waitForFunction((b) => document.querySelector('.fixed.bottom-0 .text-lg')?.textContent !== b, before, { timeout: 30000 });
-const after = await page.locator('.fixed.bottom-0 .text-lg').innerText();
+await page.waitForFunction((b) => document.querySelector('.fixed.bottom-16 .text-lg')?.textContent !== b, before, { timeout: 30000 });
+const after = await page.locator('.fixed.bottom-16 .text-lg').innerText();
 await page.screenshot({ path: `${out}/2-cart.png` });
 await page.locator('#checkout button:has-text("Request quotation")').click();
 await page.waitForURL(/quotations/, { timeout: 30000 });

@@ -1,3 +1,4 @@
+import { localized } from '@/lib/localized';
 import { randomUUID } from 'node:crypto';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -54,7 +55,7 @@ function OptionCard({ t, slot, option, configId, locked }: { t: TFunction; slot:
 export default async function CartPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!isUuid(id)) notFound();
-  const { ctx, t } = await pageCtx('customer');
+  const { ctx, t, locale } = await pageCtx('customer');
   const { config, view } = await load(() => getCart(ctx, id));
   const accepted = config.quotation_status === 'ACCEPTED';
   const locked = accepted || config.status === 'ARCHIVED';
@@ -66,7 +67,7 @@ export default async function CartPage({ params }: { params: Promise<{ id: strin
   const red = view.compat?.status === 'RED';
   return (
     <>
-      <PageHeader title={config.name} subtitle={`${view.packageVersion.title} · ${config.project_name} · ${config.config_number}`}
+      <PageHeader title={config.name} subtitle={`${localized(view.packageVersion, 'title', locale)} · ${config.project_name} · ${config.config_number}`}
         back={{ href: `/customer/shop/projects/${config.lead_id}`, label: t('mk.proj.back') }} />
       {accepted && <Alert tone="green" className="mb-4">{t('mk.cart.acceptedLocked')}</Alert>}
       <div className="grid gap-5 lg:grid-cols-3">
@@ -143,7 +144,7 @@ export default async function CartPage({ params }: { params: Promise<{ id: strin
       </div>
       {/* Mobile: the live total stays visible while customising. */}
       <div className="h-20 lg:hidden" aria-hidden />
-      <div className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between gap-3 border-t border-slate-200 bg-surface px-4 py-3 shadow-lg lg:hidden">
+      <div className="fixed inset-x-0 bottom-16 z-20 flex items-center justify-between gap-3 border-t border-slate-200 bg-surface px-4 py-3 shadow-lg lg:hidden">
         <span className="min-w-0"><span className="block text-xs text-slate-600">{t('mk.price.totalEstimated')}</span>
           <span className="block text-lg font-bold tabular-nums text-slate-900">{view.totals ? formatINR(view.totals.totalPayable) : t(`mk.pricingStatus.${view.pricingStatus}`)}</span></span>
         <a href="#checkout" className={buttonClass(red ? 'secondary' : 'primary', 'md')}>{locked ? t('mk.cart.summary') : t('mk.cart.requestQuote')}</a>

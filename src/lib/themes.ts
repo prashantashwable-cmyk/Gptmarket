@@ -15,6 +15,10 @@ const ZINC: Scale = ['#fafafa', '#f4f4f5', '#e4e4e7', '#d4d4d8', '#a1a1aa', '#71
 const STONE: Scale = ['#fafaf9', '#f5f5f4', '#e7e5e4', '#d6d3d1', '#a8a29e', '#78716c', '#57534e', '#44403c', '#292524', '#1c1917', '#0c0a09'];
 const SLATE: Scale = ['#f8fafc', '#f1f5f9', '#e2e8f0', '#cbd5e1', '#94a3b8', '#64748b', '#475569', '#334155', '#1e293b', '#0f172a', '#020617'];
 const INK: Scale = ['#fafafa', '#f4f4f5', '#e4e4e7', '#d4d4d8', '#a1a1aa', '#52525b', '#27272a', '#18181b', '#09090b', '#09090b', '#000000'];
+/** AIEC brand navy (owner's brief: deep navy, metallic silver, subtle gold). */
+const AIEC_NAVY: Scale = ['#f0f4fa', '#dde6f3', '#bccde6', '#8eaad3', '#5d82bb', '#2c5590', '#1b3a6b', '#152d55', '#11264a', '#0d1e3c', '#0a1730'];
+/** Cool metallic silver neutrals. */
+const SILVER: Scale = ['#f7f8fa', '#eef1f5', '#dfe4eb', '#c9d0da', '#9aa5b4', '#6b7685', '#4b5563', '#374151', '#1f2937', '#111827', '#030712'];
 const TERRACOTTA: Scale = ['#fdf6f0', '#fbe9dc', '#f6d0b8', '#efb08d', '#e58a5e', '#d96b3c', '#c2542a', '#a04424', '#833a23', '#6b3120', '#3a180e'];
 
 export interface Theme {
@@ -42,6 +46,13 @@ const LIGHT_HERO = { tile: '#ffffff', line: '#e2e8f0' };
 const DARK_HERO = { tile: 'rgb(255 255 255 / 0.08)', line: 'rgb(255 255 255 / 0.18)' };
 
 export const THEMES: Theme[] = [
+  {
+    id: 'aiec', name: 'AIEC Navy & Gold', brand: AIEC_NAVY, neutral: SILVER, accent: ['#e0c068', '#c9a227', '#a8841a'], onBrand: '#ffffff', onAccent: '#0a1730',
+    surface: '#ffffff', page: '#f5f7fa',
+    hero: { from: '#0a1730', via: '#11264a', to: '#1b3a6b', fg: '#ffffff', muted: '#c9d6ea', ...DARK_HERO },
+    sidebar: { bg: '#0a1730', fg: '#b7c4d8', strong: '#e0c068', active: 'rgb(255 255 255 / 0.08)' }, ink: { bg: '#0a1730', fg: '#ffffff', muted: '#b7c4d8' },
+    radius: '0.75rem', font: font('Plus Jakarta Sans Variable'),
+  },
   {
     id: 'enterprise', name: 'Aerchain-style Enterprise', brand: VIOLET, accent: ['#a78bfa', '#7c3aed', '#6d28d9'], onBrand: '#ffffff', onAccent: '#ffffff',
     surface: '#ffffff', page: '#f8fafc', hero: { from: '#ffffff', via: '#f5f3ff', to: '#ede9fe', fg: '#1e1b4b', muted: '#4b5563', ...LIGHT_HERO },
@@ -106,7 +117,7 @@ export const THEMES: Theme[] = [
   },
 ];
 
-export const DEFAULT_THEME = 'enterprise';
+export const DEFAULT_THEME = 'aiec';
 export const THEME_COOKIE = 'aiec_theme';
 export function isTheme(id: unknown): id is string {
   return typeof id === 'string' && THEMES.some((t) => t.id === id);

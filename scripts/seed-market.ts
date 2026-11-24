@@ -102,6 +102,14 @@ const PACKAGES: Record<PackageCode, { title: string; summary: string; features: 
   },
 };
 
+/** Hindi and Marathi versions of the demo package texts. */
+const PACKAGE_I18N: Record<PackageCode, Record<string, string>> = {
+  BASIC: { titleHi: 'AIEC बेसिक', titleMr: 'AIEC बेसिक', summaryHi: 'छोटी आवासीय इमारतों के लिए भरोसेमंद पैसेंजर लिफ्ट।', summaryMr: 'लहान निवासी इमारतींसाठी विश्वासार्ह प्रवासी लिफ्ट.', featuresHi: 'गियरलेस मशीन\nऑटोमैटिक दरवाज़े\nऑटोमैटिक रेस्क्यू डिवाइस\nLED लाइटिंग', featuresMr: 'गियरलेस मशीन\nस्वयंचलित दरवाजे\nस्वयंचलित बचाव उपकरण\nLED लाइटिंग', exclusionsHi: 'सिविल और शाफ़्ट कार्य\nमशीन के लिए थ्री-फ़ेज़ बिजली आपूर्ति\nवैधानिक शुल्क', exclusionsMr: 'सिव्हिल आणि शाफ्टचे काम\nमशीनसाठी थ्री-फेज वीजपुरवठा\nवैधानिक शुल्क' },
+  STANDARD: { titleHi: 'AIEC स्टैंडर्ड', titleMr: 'AIEC स्टँडर्ड', summaryHi: 'अपार्टमेंट और ऑफ़िस के लिए आरामदायक, सुलभ लिफ्ट।', summaryMr: 'अपार्टमेंट आणि कार्यालयांसाठी आरामदायक, सुलभ लिफ्ट.', featuresHi: 'स्टेनलेस स्टील केबिन\nटच-फ़्री के लिए तैयार ऑपरेटिंग पैनल\nव्हीलचेयर के लिए 900 मिमी विकल्प\nऑटोमैटिक रेस्क्यू डिवाइस', featuresMr: 'स्टेनलेस स्टील केबिन\nटच-फ्रीसाठी तयार ऑपरेटिंग पॅनल\nव्हीलचेअरसाठी 900 मिमी पर्याय\nस्वयंचलित बचाव उपकरण', exclusionsHi: 'सिविल और शाफ़्ट कार्य\nथ्री-फ़ेज़ बिजली आपूर्ति\nवैधानिक शुल्क', exclusionsMr: 'सिव्हिल आणि शाफ्टचे काम\nथ्री-फेज वीजपुरवठा\nवैधानिक शुल्क' },
+  PREMIUM: { titleHi: 'AIEC प्रीमियम', titleMr: 'AIEC प्रीमियम', summaryHi: 'मध्यम ऊँचाई की इमारतों के लिए तेज़, बड़ी लिफ्ट और प्रीमियम इंटीरियर।', summaryMr: 'मध्यम उंचीच्या इमारतींसाठी वेगवान, मोठी लिफ्ट आणि प्रीमियम इंटिरियर.', featuresHi: '1000 किलो गियरलेस मशीन\n16-स्टॉप कंट्रोलर\nघोषणाओं वाला TFT डिस्प्ले\nडिज़ाइनर सीलिंग', featuresMr: '1000 किलो गियरलेस मशीन\n16-स्टॉप कंट्रोलर\nघोषणांसह TFT डिस्प्ले\nडिझायनर सीलिंग', exclusionsHi: 'सिविल और शाफ़्ट कार्य\nथ्री-फ़ेज़ बिजली आपूर्ति\nवैधानिक शुल्क', exclusionsMr: 'सिव्हिल आणि शाफ्टचे काम\nथ्री-फेज वीजपुरवठा\nवैधानिक शुल्क' },
+  LUXURY: { titleHi: 'AIEC लक्ज़री', titleMr: 'AIEC लक्झरी', summaryHi: 'सिग्नेचर इंटीरियर और सर्वोच्च आराम।', summaryMr: 'सिग्नेचर इंटिरियर आणि सर्वोच्च आराम.', featuresHi: 'गोल्ड मिरर-एच्ड केबिन\nइटैलियन मार्बल फ़्लोरिंग\nकोव लाइटिंग\nCCTV के साथ इंटरकॉम शामिल', featuresMr: 'गोल्ड मिरर-एच्ड केबिन\nइटालियन मार्बल फ्लोअरिंग\nकोव्ह लाइटिंग\nCCTV सह इंटरकॉम समाविष्ट', exclusionsHi: 'सिविल और शाफ़्ट कार्य\nथ्री-फ़ेज़ बिजली आपूर्ति\nवैधानिक शुल्क', exclusionsMr: 'सिव्हिल आणि शाफ्टचे काम\nथ्री-फेज वीजपुरवठा\nवैधानिक शुल्क' },
+};
+
 async function engineerUser(): Promise<Ctx> {
   return withSystem(async (tx) => {
     const existing = await tx.maybeOne<{ id: string }>(`select id from users where phone = '+919000000008'`);
@@ -157,6 +165,7 @@ export async function seedMarketplace(admin: Ctx, opts: { supplierCompanyId?: st
     await updatePackageVersion(admin, {
       id: versionId, title: def.title, summary: def.summary, features: def.features, exclusions: def.exclusions, warrantyMonths: def.warranty,
       eligiblePurposes: def.purposes as never, minStops: def.stops[0], maxStops: def.stops[1], maxSpeedMps: def.speed, minLoadKg: def.load[0], maxLoadKg: def.load[1],
+      ...PACKAGE_I18N[pkg.code],
     });
     for (const [category, options, flags] of def.slots) {
       await addSlot(admin, { versionId, categoryCode: category, isMandatory: flags?.mandatory ?? true, customerEditable: flags?.editable ?? false });

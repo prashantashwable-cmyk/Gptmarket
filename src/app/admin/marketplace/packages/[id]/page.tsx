@@ -75,6 +75,18 @@ export default async function PackageEditor({ params }: { params: Promise<{ id: 
                 <Field name="maxLoadKg" type="number" label={t('mk.pkg.maxLoad')} defaultValue={v.max_load_kg} disabled={!draft} />
                 <Field name="maxSpeedMps" type="number" step="0.05" label={t('mk.pkg.maxSpeed')} defaultValue={v.max_speed_mps} disabled={!draft} />
               </div>
+              <details className="rounded-lg border border-slate-200 p-3" open={Boolean(v.title_hi || v.title_mr)}>
+                <summary className="cursor-pointer text-sm font-medium text-brand-700">{t('mk.pkg.translations')}</summary>
+                <p className="mt-1 text-xs text-slate-600">{t('mk.pkg.translationsHint')}</p>
+                {(['Hi', 'Mr'] as const).map((L) => (
+                  <fieldset key={L} className="mt-3 space-y-2"><legend className="text-sm font-semibold">{L === 'Hi' ? 'हिन्दी' : 'मराठी'}</legend>
+                    <Field name={`title${L}`} label={t('mk.pkg.title')} defaultValue={v[`title_${L.toLowerCase()}`] ?? ''} disabled={!draft} lang={L.toLowerCase()} />
+                    <TextareaField name={`summary${L}`} label={t('mk.pkg.summary')} defaultValue={v[`summary_${L.toLowerCase()}`] ?? ''} rows={2} disabled={!draft} lang={L.toLowerCase()} />
+                    <TextareaField name={`features${L}`} label={t('mk.pkg.features')} defaultValue={v[`features_${L.toLowerCase()}`] ?? ''} rows={4} disabled={!draft} hint={t('mk.pkg.onePerLine')} lang={L.toLowerCase()} />
+                    <TextareaField name={`exclusions${L}`} label={t('mk.cat.excluded')} defaultValue={v[`exclusions_${L.toLowerCase()}`] ?? ''} rows={3} disabled={!draft} lang={L.toLowerCase()} />
+                  </fieldset>
+                ))}
+              </details>
               {draft && <SubmitButton size="sm">{t('common.save')}</SubmitButton>}
             </ActionForm>
           </Section>

@@ -1,3 +1,4 @@
+import { localized } from '@/lib/localized';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CompatBadge, PriceOrRequest } from '@/components/market/views';
@@ -10,7 +11,7 @@ import { compareConfigurations } from '@/server/services/shop';
 export default async function CompareConfigurations({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!isUuid(id)) notFound();
-  const { ctx, t } = await pageCtx('customer');
+  const { ctx, t, locale } = await pageCtx('customer');
   const rows = await load(() => compareConfigurations(ctx, id));
   const categories = COMPONENT_CATEGORY.filter((c) => rows.some((r) => r.view.slots.some((s) => s.category === c)));
   return (
@@ -23,7 +24,7 @@ export default async function CompareConfigurations({ params }: { params: Promis
               <thead><tr className="border-b border-slate-200 text-left">
                 <th className="py-2 pr-3 font-medium text-slate-500">{t('mk.cmp.item')}</th>
                 {rows.map((r) => <th key={r.config.id} className="px-3 py-2 align-bottom"><Link href={`/customer/shop/cart/${r.config.id}`} className="font-semibold text-brand-700 hover:underline">{r.config.name}</Link>
-                  <span className="block text-xs font-normal text-slate-500">{r.view.packageVersion.title}</span></th>)}
+                  <span className="block text-xs font-normal text-slate-500">{localized(r.view.packageVersion, 'title', locale)}</span></th>)}
               </tr></thead>
               <tbody>
                 <tr className="border-b border-slate-100 bg-slate-50 font-semibold"><td className="py-2 pr-3">{t('mk.price.totalEstimated')}</td>

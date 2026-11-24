@@ -6,7 +6,7 @@ import { AppError } from '@/lib/errors';
 import { zBool, zEnum, zInt, zNumber, zOptText, zText, zUuid } from '@/lib/validation';
 import { audit } from '../audit';
 import { requirePerm, type Ctx } from '../ctx';
-import { withCtx, type Rec, type Tx } from '../db';
+import { withCtx, withSystem, type Rec, type Tx } from '../db';
 import { emitEvent } from './automation';
 
 export async function listPackagesAdmin(ctx: Ctx) {
@@ -45,11 +45,14 @@ export async function createPackageDraft(ctx: Ctx, packageId: string): Promise<s
     const next = (prev?.version_no ?? 0) + 1;
     const row = await tx.one<{ id: string }>(
       `insert into package_versions (package_id, version_no, title, summary, features, exclusions, warranty_months, eligible_purposes,
-              min_stops, max_stops, max_speed_mps, min_load_kg, max_load_kg, image_file_id, created_by)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) returning id`,
+              min_stops, max_stops, max_speed_mps, min_load_kg, max_load_kg, image_file_id, created_by,
+              title_hi, title_mr, summary_hi, summary_mr, features_hi, features_mr, exclusions_hi, exclusions_mr)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) returning id`,
       [packageId, next, prev?.title ?? `AIEC ${pkg.code[0]}${pkg.code.slice(1).toLowerCase()}`, prev?.summary ?? null, prev?.features ?? null,
         prev?.exclusions ?? null, prev?.warranty_months ?? 12, prev?.eligible_purposes ?? ['PASSENGER'], prev?.min_stops ?? 2, prev?.max_stops ?? 10,
-        prev?.max_speed_mps ?? 1.0, prev?.min_load_kg ?? 100, prev?.max_load_kg ?? 1000, prev?.image_file_id ?? null, ctx.userId]);
+        prev?.max_speed_mps ?? 1.0, prev?.min_load_kg ?? 100, prev?.max_load_kg ?? 1000, prev?.image_file_id ?? null, ctx.userId,
+        prev?.title_hi ?? null, prev?.title_mr ?? null, prev?.summary_hi ?? null, prev?.summary_mr ?? null, prev?.features_hi ?? null, prev?.features_mr ?? null,
+        prev?.exclusions_hi ?? null, prev?.exclusions_mr ?? null]);
     if (prev) {
       const slots = await tx.query<Rec>('select * from package_slots where version_id = $1', [prev.id]);
       for (const s of slots) {
@@ -74,6 +77,8 @@ export const packageVersionSchema = z.object({
   id: zUuid, title: zText(120), summary: zOptText(1000), features: zOptText(3000), exclusions: zOptText(3000),
   warrantyMonths: zInt(0, 240), eligiblePurposes: z.array(zEnum(LIFT_PURPOSE)).min(1, 'REQUIRED'),
   minStops: zInt(2, 100), maxStops: zInt(2, 100), maxSpeedMps: zNumber(0.1, 10), minLoadKg: zInt(50, 20000), maxLoadKg: zInt(50, 20000),
+  titleHi: zOptText(120), titleMr: zOptText(120), summaryHi: zOptText(1000), summaryMr: zOptText(1000),
+  featuresHi: zOptText(3000), featuresMr: zOptText(3000), exclusionsHi: zOptText(3000), exclusionsMr: zOptText(3000),
 });
 export async function updatePackageVersion(ctx: Ctx, input: z.infer<typeof packageVersionSchema>): Promise<void> {
   requirePerm(ctx, 'package.manage');
@@ -83,9 +88,11 @@ export async function updatePackageVersion(ctx: Ctx, input: z.infer<typeof packa
     await draftOf(tx, input.id);
     await tx.exec(
       `update package_versions set title=$2, summary=$3, features=$4, exclusions=$5, warranty_months=$6, eligible_purposes=$7, min_stops=$8, max_stops=$9,
-              max_speed_mps=$10, min_load_kg=$11, max_load_kg=$12 where id=$1`,
+              max_speed_mps=$10, min_load_kg=$11, max_load_kg=$12, title_hi=$13, title_mr=$14, summary_hi=$15, summary_mr=$16, features_hi=$17, features_mr=$18,
+              exclusions_hi=$19, exclusions_mr=$20 where id=$1`,
       [input.id, input.title, input.summary ?? null, input.features ?? null, input.exclusions ?? null, input.warrantyMonths, input.eligiblePurposes,
-        input.minStops, input.maxStops, input.maxSpeedMps, input.minLoadKg, input.maxLoadKg]);
+        input.minStops, input.maxStops, input.maxSpeedMps, input.minLoadKg, input.maxLoadKg, input.titleHi ?? null, input.titleMr ?? null,
+        input.summaryHi ?? null, input.summaryMr ?? null, input.featuresHi ?? null, input.featuresMr ?? null, input.exclusionsHi ?? null, input.exclusionsMr ?? null]);
     await audit(tx, ctx, 'package.update', 'package_version', input.id, {});
   });
 }
@@ -179,4 +186,11 @@ export async function deletePackageDraft(ctx: Ctx, versionId: string): Promise<v
     await tx.exec('delete from package_versions where id = $1', [versionId]);
     await audit(tx, ctx, 'package.draft_delete', 'package_version', versionId, {});
   });
+}
+
+/** Published packages for the public storefront: names, features and warranty only (never prices). */
+export async function listPublicPackages(): Promise<Rec[]> {
+  return withSystem((tx) => tx.query<Rec>(
+    `select p.code, v.title, v.summary, v.features, v.features_hi, v.features_mr, v.warranty_months from package_versions v join lift_packages p on p.id = v.package_id
+      where v.status = 'PUBLISHED' order by p.tier`));
 }

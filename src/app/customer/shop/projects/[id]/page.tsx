@@ -1,3 +1,4 @@
+import { localized } from '@/lib/localized';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { recordPaymentAction, updateSpecAction } from '@/app/actions/market';
@@ -72,7 +73,7 @@ export default async function ShopProjectPage({ params }: { params: Promise<{ id
               <ul className="grid gap-3 sm:grid-cols-2">{configurations.map((c) => (
                 <li key={c.id}><Link href={`/customer/shop/cart/${c.id}`} className="block"><Card className="h-full p-4 hover:shadow-md">
                   <p className="font-semibold text-slate-900">{c.name}</p>
-                  <p className="text-sm text-slate-600">{c.package_title}</p>
+                  <p className="text-sm text-slate-600">{localized(c, 'package_title', locale)}</p>
                   <p className="mt-2 flex flex-wrap gap-2 text-xs"><StatusBadge value={c.status} label={t(`e.configStatus.${c.status}`)} />
                     {c.quotation_status && <StatusBadge value={c.quotation_status} label={t(`e.marketQuotationStatus.${c.quotation_status}`)} />}</p>
                   <p className="mt-2 text-xs text-slate-500">{c.config_number} · {formatDate(c.updated_at, locale)}</p>
