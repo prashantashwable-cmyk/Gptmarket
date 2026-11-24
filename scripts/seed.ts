@@ -24,6 +24,7 @@ import { seedMarketplace } from './seed-market';
 import { createShopProject, setCartOption, startConfiguration } from '../src/server/services/shop';
 import { engineeringDecision, getMarketQuotation, requestQuotation, respondQuotation } from '../src/server/services/market-quotes';
 import { createAiecOrder, issueCustomerInvoice, recordCustomerPayment, verifyCustomerPayment } from '../src/server/services/aiec-contract';
+import { generatePurchaseOrders, getSupplierOrders, supplierPoAction } from '../src/server/services/supplier-orders';
 
 export const DEMO_PDF = { name: 'demo-document.pdf', type: 'application/pdf', bytes: Buffer.from('%PDF-1.4\n% AIEC demo placeholder document\n%%EOF\n') };
 export const DEMO_PNG = {
@@ -268,6 +269,9 @@ export async function seedDemo(): Promise<void> {
   const invoice = await issueCustomerInvoice(ops, { milestoneId: firstMilestone.id, dueDays: 7 });
   const claim = await recordCustomerPayment(customer2, { invoiceId: invoice, amount: firstMilestone.amount_due, paymentMode: 'UPI', reference: 'DEMO-UPI-0001', paidOn: daysFromNow(0) });
   await verifyCustomerPayment(s.finance.permissions.has('payment.reconcile') ? s.finance : ops, { id: claim, decision: 'VERIFIED', note: 'Matched with the demo bank statement' });
+  await generatePurchaseOrders(ops, aiecOrder);
+  const bhimaPo = (await getSupplierOrders(market.suppliers[0])).orders[0];
+  await supplierPoAction(market.suppliers[0], { id: bhimaPo.id, action: 'ACKNOWLEDGE', expectedDelivery: daysFromNow(10) });
   await withSystem((tx) => tx.exec('update leads set is_demo = true'));
 
   await saveLender(s.finance, {

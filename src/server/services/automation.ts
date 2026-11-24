@@ -11,12 +11,11 @@ export async function emitEvent(
   tx: Tx, ctx: Ctx | null, eventType: string, idempotencyKey: string,
   entity: { type: string; id: string | null }, payload: Record<string, unknown> = {},
 ): Promise<boolean> {
-  const rows = await tx.query<{ id: string }>(
-    `insert into automation_events (event_type, idempotency_key, entity_type, entity_id, actor_id, payload, status, attempts, processed_at)
-     values ($1, $2, $3, $4, $5, $6, 'DONE', 1, now()) on conflict (idempotency_key) do nothing returning id`,
-    [eventType, idempotencyKey, entity.type, entity.id, ctx?.userId ?? null, JSON.stringify(payload)],
-  );
-  return rows.length === 1;
+  // Trusted function (migration 0008): INSERT ... ON CONFLICT needs read access under row-level security,
+  // and only AIEC staff may read the event log.
+  const row = await tx.one<{ fresh: boolean }>('select app.emit_event($1, $2, $3, $4, $5, $6) as fresh',
+    [eventType, idempotencyKey, entity.type, entity.id, ctx?.userId ?? null, JSON.stringify(payload)]);
+  return row.fresh;
 }
 
 /** Records a step that failed outside a transaction that rolled back, so it can be retried and is visible to staff. */

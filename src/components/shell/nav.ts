@@ -43,6 +43,7 @@ const PARTNER: NavItem[] = [
   { key: 'service', href: '/partner/service', icon: 'Wrench', anyOf: ['service.perform'] },
   { key: 'catalogue', href: '/partner/catalogue', icon: 'Boxes', anyOf: ['catalogue.manage'] },
   { key: 'supplierCatalogue', href: '/partner/marketplace', icon: 'Store', anyOf: ['catalogue.manage'], supplierOnly: true, tab: true },
+  { key: 'supplierOrders', href: '/partner/supplier-orders', icon: 'PackageCheck', anyOf: ['catalogue.manage'], supplierOnly: true, tab: true },
   { key: 'notifications', href: '/partner/notifications', icon: 'Bell' },
 ];
 const CUSTOMER: NavItem[] = [

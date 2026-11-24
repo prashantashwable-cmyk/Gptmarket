@@ -11,6 +11,7 @@ import * as quotes from '@/server/services/market-quotes';
 import * as packages from '@/server/services/packages';
 import * as rules from '@/server/services/rules';
 import * as shop from '@/server/services/shop';
+import * as supplierOrders from '@/server/services/supplier-orders';
 
 type R = Promise<ActionResult>;
 const idOnly = z.object({ id: zUuid });
@@ -166,4 +167,18 @@ export async function refundAction(_p: ActionResult, fd: FormData): R {
 }
 export async function payoutAction(_p: ActionResult, fd: FormData): R {
   return runAction(aiec.payoutSchema, fd, (i, ctx) => aiec.actOnPayout(ctx, i));
+}
+
+// ───────────── supplier purchase orders ─────────────
+export async function generatePosAction(_p: ActionResult, fd: FormData): R {
+  return runAction(idOnly, fd, async (i, ctx) => { await supplierOrders.generatePurchaseOrders(ctx, i.id); return { message: 'mk.po.generated' }; });
+}
+export async function supplierPoAction(_p: ActionResult, fd: FormData): R {
+  return runAction(supplierOrders.supplierPoActionSchema, fd, (i, ctx) => supplierOrders.supplierPoAction(ctx, i));
+}
+export async function staffPoAction(_p: ActionResult, fd: FormData): R {
+  return runAction(supplierOrders.poStaffSchema, fd, (i, ctx) => supplierOrders.staffPoAction(ctx, i));
+}
+export async function supplierPaymentAction(_p: ActionResult, fd: FormData): R {
+  return runAction(supplierOrders.supplierPaymentSchema, fd, (i, ctx) => supplierOrders.recordSupplierPayment(ctx, i));
 }

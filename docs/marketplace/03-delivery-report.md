@@ -109,10 +109,20 @@ route `src/app/api/webhooks/razorpay/route.ts`, component `src/components/market
 
 Tests: 12 new integration tests (34 marketplace integration tests in total).
 
+## 3b. Release 3 — fresh frontend and supplier purchase orders
+
+- **Design system:** default theme "AIEC Navy & Gold" (white, deep navy, metallic silver, subtle gold); navy sidebar on desktop, native-style bottom tab bar with a "More" sheet on phones; installable web app.
+- **Storefront:** new shop-first public page (`src/components/site/storefront.tsx`) with live package cards, journey, customise-vs-locked safety, engineering checks, execution models, supplier/partner sign-up and FAQ, in English, Hindi and Marathi. Customers land on the lift shop after sign-in.
+- **Trilingual package texts:** Hindi and Marathi package titles, summaries, features and exclusions (migration 0007), edited in the package editor, English fallback.
+- **Supplier purchase orders (brief section 8):** one PO per supplier from the costs frozen in the accepted quotation (migration 0008, `supplier-orders.ts`); supplier acknowledges with an expected date and dispatches with a reference (operations notified); AIEC marks delivery; the owner records supplier payments (never above the PO); supplier ledger page. PO amounts and lines are immutable.
+- **Fix:** automation events are now recorded through the trusted `app.emit_event()` function; previously an event triggered by a supplier or partner session would have been refused by row-level security.
+
+Tests: 115 / 115 (3 new purchase-order integration tests, 1 new unit test).
+
 ## 4. Remaining limitations (honest list)
-1. **AIEC Contract chain** is built (above). Not built: supplier purchase orders and supplier payments for AIEC Contract materials, and an automatic AIEC revenue/GST ledger export to accounting.
+1. **AIEC Contract chain** and supplier purchase orders are built (above). Not built: supplier RFQs (request for quotation), supplier performance score, and an automatic revenue/GST ledger export to accounting.
 2. **Razorpay** checkout (payment links / orders API) needs merchant keys; only the signed webhook is implemented.
-3. **Supplier RFQs, dispatch updates, supplier ledger and performance score** (brief section 8) are not built.
+3. **Supplier RFQs and performance score** (brief section 8) are not built; purchase orders, dispatch and ledger are.
 4. **Licensed partner bidding for AIEC-contract projects** (brief section 9) uses the existing invitation/quotation flow only.
 5. **Automation retry worker:** events are recorded with status, attempts and idempotency. A background retry of `FAILED` events is not implemented; failures appear in the exception queue.
 6. **PDF is English-only.** The standard PDF fonts cannot draw ₹ or Devanagari, so it uses "Rs.". The on-screen quotation is trilingual. A Devanagari PDF needs an embedded Unicode font and a text-shaping engine.

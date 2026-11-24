@@ -65,7 +65,10 @@ Supplier costs and pricing rules are read only on the trusted path (`market-engi
 AIEC Contract chain: migration `0006_aiec_contract.sql`, service `aiec-contract.ts` (orders from accepted quotations, invoices, maker-checker payments,
 refunds, owner-only partner payouts, Razorpay webhook awaiting `RAZORPAY_WEBHOOK_SECRET`). `orders.execution_model` separates the two models; partners read
 AIEC order scope only via `app.aiec_order_scope()`.
-Next: Razorpay checkout (after merchant onboarding), supplier POs/payments, supplier RFQ/dispatch/ledger, automation retry worker.
+Supplier purchase orders: migration `0008_supplier_orders.sql`, service `supplier-orders.ts` (POs from frozen quotation costs, supplier acknowledge/dispatch,
+AIEC delivery, owner-only supplier payments, supplier ledger at `/partner/supplier-orders`). Events go through `app.emit_event()` (RLS needs read access for
+INSERT ... ON CONFLICT, so never insert into automation_events directly from a tenant transaction).
+Next: Razorpay checkout (after merchant onboarding), supplier RFQs, automation retry worker.
 
 Open items (need the owner, not code): see README "Before going live" and `docs/compliance-register.md`.
 Not built: real SMS / WhatsApp / lender / payment / e-sign / maps integrations, PostGIS, native mobile apps, object storage.

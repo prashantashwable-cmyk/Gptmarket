@@ -4,7 +4,7 @@ import type { market as en } from '../en/market';
 type Deep<T> = { [K in keyof T]: T[K] extends string ? string : Deep<T[K]> };
 
 export const market: Deep<typeof en> = {
-  nav: { liftShop: 'लिफ्ट शॉप', marketplace: 'लिफ्ट मार्केटप्लेस', supplierCatalogue: 'मार्केटप्लेस कॅटलॉग' },
+  nav: { liftShop: 'लिफ्ट शॉप', marketplace: 'लिफ्ट मार्केटप्लेस', supplierOrders: "खरेदी आदेश", supplierCatalogue: 'मार्केटप्लेस कॅटलॉग' },
   role: { ENGINEER: 'अधिकृत लिफ्ट अभियंता' },
   e: {
     compatLevel: { GREEN: 'सुसंगत', YELLOW: 'अभियंत्याची मंजुरी आवश्यक', RED: 'विसंगत' },
@@ -60,6 +60,13 @@ export const market: Deep<typeof en> = {
       PAID: "दिले",
       HELD: "थांबवले",
     },
+    supplierPoStatus: {
+      ISSUED: "जारी",
+      ACKNOWLEDGED: "स्वीकारले",
+      DISPATCHED: "पाठवले",
+      DELIVERED: "पोहोचले",
+      CANCELLED: "रद्द",
+    },
     buildingAge: { NEW: 'नवीन इमारत', EXISTING: 'सध्याची इमारत' },
   },
   err: {
@@ -76,6 +83,7 @@ export const market: Deep<typeof en> = {
     PROJECT_STOP_WORK: "प्रकल्पावर काम-थांबवा आदेश आहे.",
     OPEN_DEFECTS: "आधी उघडे उच्च किंवा गंभीर QC दोष बंद करा.",
     SAME_PERSON_VERIFY: "देयक नोंदवणाऱ्यापेक्षा वेगळ्या व्यक्तीने पडताळणी करणे आवश्यक आहे.",
+    ORDER_NOT_CONFIRMED: "पुरवठादार खरेदी आदेश जारी करण्यापूर्वी ऑर्डर निश्चित करा.",
     CATEGORY_MISMATCH: 'हे उत्पादन वेगळ्या घटक श्रेणीचे आहे.',
     COMPATIBILITY_NOT_CONFIGURED: 'अभियांत्रिकी नियम अजून सक्रिय नाहीत. कोटेशन देण्यापूर्वी AIEC ने ते सक्रिय करणे आवश्यक आहे.',
     COMPONENT_NOT_CUSTOMISABLE: 'हा घटक पॅकेजने निश्चित केला आहे आणि बदलता येत नाही.',
@@ -114,6 +122,10 @@ export const market: Deep<typeof en> = {
     AIEC_PAYMENT_VERIFIED: "बिल {number} चे तुमचे देयक पडताळले. धन्यवाद.",
     AIEC_PAYMENT_REJECTED: "बिल {number} चे तुमचे देयक पडताळता आले नाही. कृपया संदर्भ तपासा.",
     AIEC_PAYOUT_STATUS: "ऑर्डर {number}, टप्पा \"{name}\": भागीदार देयकाची स्थिती – {status}.",
+    MATERIAL_DISPATCHED: "साहित्य पाठवले: ऑर्डर {order} साठी खरेदी आदेश {number}.",
+    SUPPLIER_PAYMENT: "AIEC ने खरेदी आदेश {number} वर पेमेंट नोंदवले.",
+    SUPPLIER_PO_ISSUED: "AIEC कडून नवीन खरेदी आदेश {number}. कृपया अपेक्षित डिलिव्हरी तारखेसह स्वीकारा.",
+    SUPPLIER_PO_STATUS: "खरेदी आदेश {number}: {status}.",
     ENGINEERING_REVIEW_DUE: 'पॅकेज कोटेशन {number} अभियांत्रिकी निर्णयाच्या प्रतीक्षेत आहे.',
     MARKET_QUOTE_ACCEPTED: 'ग्राहकाने पॅकेज कोटेशन {number} स्वीकारले ({model}).',
     MARKET_QUOTE_ISSUED: 'तुमचे कोटेशन {number} मंजूर झाले असून स्वीकारण्यास तयार आहे.',
@@ -133,6 +145,30 @@ export const market: Deep<typeof en> = {
     partnerPayout: "भागीदार देयक रक्कम ठरली",
   },
   mk: {
+    po: {
+      title: "पुरवठादार खरेदी आदेश",
+      hint: "प्रत्येक पुरवठादारासाठी एक खरेदी आदेश, स्वीकारलेल्या कोटेशनमध्ये ठरलेल्या खर्चावरून.",
+      generate: "खरेदी आदेश जारी करा",
+      generated: "पुरवठादारांना खरेदी आदेश जारी केले.",
+      afterConfirm: "ऑर्डर निश्चित झाल्यावर उपलब्ध.",
+      expected: "अपेक्षित {date}",
+      dispatchRef: "डिस्पॅच संदर्भ {ref}",
+      paidOf: "दिले {paid} · बाकी {outstanding}",
+      markDelivered: "पोहोचले म्हणून नोंदवा",
+      cancel: "रद्द करा",
+      recordPayment: "पेमेंट नोंदवा",
+      none: "अजून खरेदी आदेश नाहीत.",
+      noneHint: "AIEC करार प्रकल्पात तुमची उत्पादने वापरली गेल्यावर AIEC चे खरेदी आदेश येथे दिसतील.",
+      deliverTo: "डिलिव्हरी पत्ता: {address}",
+      expectedLabel: "अपेक्षित डिलिव्हरी",
+      acknowledge: "स्वीकारा",
+      dispatchLabel: "डिस्पॅच संदर्भ (LR / बिल क्र.)",
+      dispatch: "पाठवले म्हणून नोंदवा",
+      supplierSubtitle: "AIEC करार प्रकल्पांसाठी AIEC चे ऑर्डर, तुमच्या पेमेंट खात्यासह.",
+      ledgerTotal: "एकूण ऑर्डर",
+      ledgerPaid: "AIEC ने दिलेले",
+      ledgerOutstanding: "बाकी",
+    },
     aiec: {
       milestonesNote: "स्वीकारलेल्या AIEC पॅकेज कोटेशनमधून ठरलेले, आता बदलता येत नाहीत. प्रत्येक टप्प्याचे बिल AIEC ग्राहकाला जारी करते.",
       model: "अंमलबजावणी पद्धत",

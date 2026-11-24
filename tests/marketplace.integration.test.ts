@@ -12,6 +12,7 @@ import { closePool, withCtx, withSystem } from '@/server/db';
 import { createLead } from '@/server/services/leads';
 import { actOnPayout, createAiecOrder, getAiecFinance, getMyAiecBilling, handleRazorpayWebhook, issueCustomerInvoice, recordCustomerPayment, refundCustomerPayment, verifyCustomerPayment } from '@/server/services/aiec-contract';
 import { submitCollection } from '@/server/services/money';
+import { generatePurchaseOrders, getOrderPurchaseOrders, getSupplierOrders, recordSupplierPayment, staffPoAction, supplierPoAction } from '@/server/services/supplier-orders';
 import { confirmOrder, getOrder, respondOrder } from '@/server/services/orders';
 import { addTeamMember } from '@/server/services/partners';
 import { updateMilestone } from '@/server/services/projects';
@@ -433,6 +434,43 @@ describe('AIEC Contract execution: order, invoices, payments, refunds, payouts',
     const rows = await sql<{ status: string; amount: string; verification_basis: string }>('select status, amount::text, verification_basis from customer_payments where invoice_id = $1', [inv3]);
     expect(rows).toEqual([{ status: 'VERIFIED', amount: '1000.00', verification_basis: 'GATEWAY_WEBHOOK' }]);
     delete process.env.RAZORPAY_WEBHOOK_SECRET;
+  });
+
+  it('issues one purchase order per supplier from the frozen costs, once', async () => {
+    expect(await generatePurchaseOrders(s.ops, orderId)).toBe(2);
+    expect(await generatePurchaseOrders(s.ops, orderId)).toBe(0);
+    const pos = (await getOrderPurchaseOrders(s.ops, orderId))!;
+    expect(pos).toHaveLength(2);
+    const material = (await sql<{ m: string }>(
+      'select c.material_cost::text as m from orders o join market_quotation_costs c on c.version_id = o.market_quotation_version_id where o.id = $1', [orderId]))[0].m;
+    expect(pos.reduce((a, p) => a + Math.round(Number(p.total_cost) * 100), 0)).toBe(Math.round(Number(material) * 100));
+    expect(await code(generatePurchaseOrders(customer, orderId))).toBe('FORBIDDEN');
+  });
+
+  it('lets each supplier see only its purchase order, acknowledge and dispatch it, and notifies operations', async () => {
+    const [bhima, indrayani] = suppliers;
+    const mine = await getSupplierOrders(bhima);
+    expect(mine.orders).toHaveLength(1);
+    expect(mine.orders[0].delivery_address).toContain('Wakad');
+    const po = mine.orders[0];
+    expect(await code(supplierPoAction(indrayani, { id: po.id, action: 'ACKNOWLEDGE', expectedDelivery: isoDateIST() }))).toBe('NOT_FOUND');
+    expect(await code(supplierPoAction(bhima, { id: po.id, action: 'DISPATCH' }))).toBe('VALIDATION');
+    await supplierPoAction(bhima, { id: po.id, action: 'ACKNOWLEDGE', expectedDelivery: isoDateIST() });
+    await supplierPoAction(bhima, { id: po.id, action: 'DISPATCH', reference: 'LR-12345' });
+    expect((await sql(`select 1 from automation_events where event_type = 'MATERIAL_DISPATCHED' and idempotency_key = $1`, [`po-dispatch:${po.id}`]))).toHaveLength(1);
+    await staffPoAction(s.ops, { id: po.id, action: 'DELIVERED' });
+    expect((await getSupplierOrders(bhima)).orders[0].status).toBe('DELIVERED');
+    expect(await code(withSystem((tx) => tx.exec('update supplier_purchase_orders set total_cost = 1 where id = $1', [po.id])))).toBe('FORBIDDEN');
+  });
+
+  it('records supplier payments by the owner only and never above the purchase order', async () => {
+    const po = (await getSupplierOrders(suppliers[0])).orders[0];
+    expect(await code(recordSupplierPayment(s.ops, { poId: po.id, amount: '1000', reference: 'NEFT-SUP-1', paidOn: isoDateIST() }))).toBe('FORBIDDEN');
+    expect(await code(recordSupplierPayment(s.admin, { poId: po.id, amount: String(Number(po.total_cost) + 1), reference: 'NEFT-SUP-X', paidOn: isoDateIST() }))).toBe('AMOUNT_EXCEEDS');
+    await recordSupplierPayment(s.admin, { poId: po.id, amount: '1000', reference: 'NEFT-SUP-1', paidOn: isoDateIST() });
+    const ledger = (await getSupplierOrders(suppliers[0])).ledger;
+    expect(ledger.paid).toBe('1000.00');
+    expect(Math.round(Number(ledger.outstanding) * 100)).toBe(Math.round(Number(po.total_cost) * 100) - 100000);
   });
 
   it('shows the customer only their own invoices and payments', async () => {
