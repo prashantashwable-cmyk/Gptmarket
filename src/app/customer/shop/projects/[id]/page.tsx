@@ -1,12 +1,15 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { updateSpecAction } from '@/app/actions/market';
+import { recordPaymentAction, updateSpecAction } from '@/app/actions/market';
 import { FileLink } from '@/components/common';
 import { SpecForm } from '@/components/market/spec-form';
 import { SpecList } from '@/components/market/views';
 import { Alert, Card, EmptyState, LinkButton, PageHeader, Section, StatusBadge } from '@/components/ui';
-import { formatDate } from '@/lib/format';
+import { CUSTOMER_PAYMENT_MODE } from '@/lib/enums';
+import { formatDate, formatINR, isoDateIST } from '@/lib/format';
+import { ActionForm, Field, SelectField, SubmitButton } from '@/components/ui/form';
 import { isUuid, load, pageCtx } from '@/server/page';
+import { getMyAiecBilling } from '@/server/services/aiec-contract';
 import { getShopProject } from '@/server/services/shop';
 
 export default async function ShopProjectPage({ params }: { params: Promise<{ id: string }> }) {
@@ -14,6 +17,8 @@ export default async function ShopProjectPage({ params }: { params: Promise<{ id
   if (!isUuid(id)) notFound();
   const { ctx, t, locale } = await pageCtx('customer');
   const { lead, spec, photos, configurations, survey, effective } = await load(() => getShopProject(ctx, id));
+  const billing = await load(() => getMyAiecBilling(ctx, id));
+  const modes = CUSTOMER_PAYMENT_MODE.filter((m) => m !== 'GATEWAY').map((m) => ({ value: m, label: t(`e.customerPaymentMode.${m}`) }));
   return (
     <>
       <PageHeader title={lead.project_name} subtitle={`${lead.lead_number} · ${t(`zone.${lead.zone_code}`)}`} back={{ href: '/customer/shop', label: t('nav.liftShop') }}
@@ -23,6 +28,43 @@ export default async function ShopProjectPage({ params }: { params: Promise<{ id
         </>} />
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
+          {billing.order && (
+            <Section title={t('mk.aiec.billingTitle')} description={t('mk.aiec.billingHint', { partner: billing.order.partner_name })}
+              actions={<StatusBadge value={billing.order.status} label={t(`e.orderStatus.${billing.order.status}`)} />}>
+              <p className="text-sm">{billing.order.order_number} · {t('mk.aiec.contractValue')}: <span className="font-semibold tabular-nums">{formatINR(billing.order.gross_order_value, locale)}</span>
+                {' · '}<Link href={`/customer/projects/${id}`} className="font-medium text-brand-700 hover:underline">{t('mk.home.track')}</Link></p>
+              {billing.invoices.length === 0 ? <p className="mt-3 text-sm text-slate-600">{t('mk.aiec.noInvoices')}</p> : (
+                <ul className="mt-3 space-y-3">{billing.invoices.map((inv) => {
+                  const pays = billing.payments.filter((p) => p.invoice_id === inv.id);
+                  return (
+                    <li key={inv.id} className="rounded-lg border border-slate-200 p-3 text-sm">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <span><span className="font-medium text-slate-900">{inv.milestone_name}</span><span className="block text-xs text-slate-600">{inv.invoice_number} · {t('mk.aiec.due', { date: formatDate(inv.due_date, locale) })}</span></span>
+                        <span className="text-right"><span className="block font-semibold tabular-nums">{formatINR(inv.total_amount, locale)}</span>
+                          <StatusBadge value={inv.status} label={t(`e.customerInvoiceStatus.${inv.status}`)} /></span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-600">{t('mk.aiec.taxSplit', { taxable: formatINR(inv.taxable_amount, locale), gst: formatINR(inv.gst_amount, locale) })}</p>
+                      {pays.length > 0 && <ul className="mt-2 space-y-1 text-xs">{pays.map((p) => (
+                        <li key={p.id} className="flex flex-wrap justify-between gap-2"><span>{formatDate(p.paid_on, locale)} · {t(`e.customerPaymentMode.${p.payment_mode}`)} · {p.reference}</span>
+                          <span className="tabular-nums">{formatINR(p.amount, locale)} <StatusBadge value={p.status} label={t(`e.customerPaymentStatus.${p.status}`)} /></span></li>
+                      ))}</ul>}
+                      {['ISSUED', 'PARTLY_PAID'].includes(inv.status) && (
+                        <details className="mt-2"><summary className="cursor-pointer text-xs font-medium text-brand-700">{t('mk.aiec.iPaid')}</summary>
+                          <ActionForm action={recordPaymentAction} className="mt-2 grid gap-2 sm:grid-cols-2"><input type="hidden" name="invoiceId" value={inv.id} />
+                            <Field name="amount" label={t('f.amount')} inputMode="decimal" required />
+                            <SelectField name="paymentMode" label={t('mk.aiec.mode')} options={modes} />
+                            <Field name="reference" label={t('mk.aiec.referenceCustomer')} required />
+                            <Field name="paidOn" type="date" label={t('mk.aiec.paidOn')} defaultValue={isoDateIST()} required />
+                            <div className="sm:col-span-2"><SubmitButton size="sm">{t('mk.aiec.reportPayment')}</SubmitButton>
+                              <p className="mt-1 text-xs text-slate-600">{t('mk.aiec.reportHint')}</p></div>
+                          </ActionForm></details>
+                      )}
+                    </li>
+                  );
+                })}</ul>
+              )}
+            </Section>
+          )}
           <Section title={t('mk.proj.configurations')} description={t('mk.proj.configurationsHint')}>
             {configurations.length === 0 ? (
               <EmptyState title={t('mk.proj.noConfigs')} action={spec ? <LinkButton href={`/customer/shop/projects/${id}/packages`}>{t('mk.proj.browse')}</LinkButton> : undefined} />

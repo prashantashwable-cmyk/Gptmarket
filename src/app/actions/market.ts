@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { ActionResult } from '@/components/ui/form';
 import { zUuid } from '@/lib/validation';
 import { runAction } from '@/server/action';
+import * as aiec from '@/server/services/aiec-contract';
 import * as catalogue from '@/server/services/catalogue';
 import { fileFromForm } from '@/server/services/files';
 import * as quotes from '@/server/services/market-quotes';
@@ -141,4 +142,28 @@ export async function engineeringDecisionAction(_p: ActionResult, fd: FormData):
 }
 export async function pricingDecisionAction(_p: ActionResult, fd: FormData): R {
   return runAction(quotes.pricingDecisionSchema, fd, (i, ctx) => quotes.pricingExceptionDecision(ctx, i));
+}
+
+// ───────────── AIEC Contract execution ─────────────
+export async function createAiecOrderAction(_p: ActionResult, fd: FormData): R {
+  return runAction(aiec.aiecOrderSchema.extend({ file: z.instanceof(File).optional() }), fd, async ({ file, ...i }, ctx) =>
+    ({ redirect: `/admin/orders/${await aiec.createAiecOrder(ctx, i, await fileFromForm(file))}` }));
+}
+export async function issueInvoiceAction(_p: ActionResult, fd: FormData): R {
+  return runAction(aiec.invoiceSchema, fd, async (i, ctx) => { await aiec.issueCustomerInvoice(ctx, i); });
+}
+export async function cancelInvoiceAction(_p: ActionResult, fd: FormData): R {
+  return runAction(aiec.cancelInvoiceSchema, fd, (i, ctx) => aiec.cancelCustomerInvoice(ctx, i));
+}
+export async function recordPaymentAction(_p: ActionResult, fd: FormData): R {
+  return runAction(aiec.paymentSchema, fd, async (i, ctx) => { await aiec.recordCustomerPayment(ctx, i); return { message: 'mk.aiec.paymentRecorded' }; });
+}
+export async function verifyPaymentAction(_p: ActionResult, fd: FormData): R {
+  return runAction(aiec.verifyPaymentSchema, fd, (i, ctx) => aiec.verifyCustomerPayment(ctx, i));
+}
+export async function refundAction(_p: ActionResult, fd: FormData): R {
+  return runAction(aiec.refundSchema, fd, (i, ctx) => aiec.refundCustomerPayment(ctx, i));
+}
+export async function payoutAction(_p: ActionResult, fd: FormData): R {
+  return runAction(aiec.payoutSchema, fd, (i, ctx) => aiec.actOnPayout(ctx, i));
 }

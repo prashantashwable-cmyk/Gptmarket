@@ -22,7 +22,7 @@ Customer ─▶ Lift project (= existing lead: consent, SLA, duplicate check, su
                                    ├─ pricing exception (discount / margin) → owner approval
                                    └─ ISSUED → customer accepts and chooses execution model
                                         ├─ MARKETPLACE   → existing partner matching → order → project → collections → milestone commission
-                                        └─ AIEC_CONTRACT → AIEC contract order, AIEC invoices, partner payouts (next phase)
+                                        └─ AIEC_CONTRACT → AIEC order → partner accepts → confirmed project → AIEC invoices → verified payments → owner-approved partner payouts
 ```
 
 ## Key rules and where they are enforced
@@ -55,9 +55,9 @@ Customer ─▶ Lift project (= existing lead: consent, SLA, duplicate check, su
 | 7 | Pricing and compatibility engines | Done, unit-tested |
 | 8 | Quotation system (versions, approvals, PDF) | Done |
 | 9 | Supplier portal (products, prices, stock, approval) | Core done; RFQs, dispatch and supplier ledger pending |
-| 10 | Licensed partner portal | Existing portal reused for the marketplace model; AIEC-contract partner engagement pending |
+| 10 | Licensed partner portal | Existing portal reused; AIEC Contract partner engagement, order scope and payouts done |
 | 11 | Admin dashboard | Marketplace approvals and exception queue done; full KPI set pending |
-| 12 | Payments and commission | Existing commission engine kept; Razorpay integration pending (needs merchant onboarding) |
+| 12 | Payments and commission | Marketplace commission kept; AIEC invoices, maker-checker payments, refunds and partner payouts done; Razorpay webhook done, checkout awaits merchant keys |
 | 13 | Workflow automation | Event log with idempotency done; retry worker pending |
 | 14 | Security and compliance | RLS on every new table, compliance matrix drafted; full review pending |
 | 15 | Testing and production deployment | Automated tests extended; deployment steps unchanged |

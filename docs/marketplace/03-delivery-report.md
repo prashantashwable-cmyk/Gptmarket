@@ -90,9 +90,28 @@ flag, zero price), incompatible combinations, **expired quotation**, database im
 Payment verification, refunds, commission, offline sync and partner licence expiry remain covered
 by the original suite.
 
+## 3a. Release 2 — AIEC Contract execution chain (brief sections 10, 12, 14)
+
+Migration `db/migrations/0006_aiec_contract.sql`, service `src/server/services/aiec-contract.ts`,
+route `src/app/api/webhooks/razorpay/route.ts`, component `src/components/market/aiec-finance.tsx`.
+
+| Step | Behaviour |
+| --- | --- |
+| Order | From an ACCEPTED quotation with `AIEC_CONTRACT`, staff (`order.manage` + `market.quote`) choose an active, licensed, insured partner serving the zone and set the partner payout. The payout may not exceed selling price − material cost. The lead moves `SURVEY_COMPLETED → ORDER_PENDING`. One live order per quotation. |
+| Confirmation | Same checklist and capacity lock as Marketplace orders; the commission gate is replaced by "partner payout agreed". Milestones are frozen from the quotation snapshot; partner payouts are created per milestone (paise-exact). No commission applies. |
+| Partner decline | The customer's contract with AIEC stands; staff engage another partner. |
+| Invoices | One GST invoice per milestone (taxable value + GST at the quotation rate). Amounts are immutable; an invoice without payments can be cancelled with a reason. |
+| Payments | Recorded by finance or reported by the customer (UTR). Only a **different** finance user can verify (maker-checker) — or a signed Razorpay webhook. Over-payment is refused. |
+| Refunds | Against verified payments, append-only, with a reason; invoice status recalculated. |
+| Partner payouts | Owner-only (`payout.approve`): approve after the milestone is completed, with no open high/critical defects and no stop-work; mark paid with a bank reference; hold with a reason. |
+| Partners | Cannot record customer collections on AIEC projects; see their payouts and the order scope, never the package quotation, AIEC invoices or customer payments. |
+| Razorpay | `POST /api/webhooks/razorpay` verifies `X-Razorpay-Signature`, records `payment.captured` against the invoice in `notes.invoice_id`, ignores replays, sends overpayments to manual review, and returns 503 until `RAZORPAY_WEBHOOK_SECRET` is set. Creating payment links/orders needs API keys after merchant onboarding (not built). |
+
+Tests: 12 new integration tests (34 marketplace integration tests in total).
+
 ## 4. Remaining limitations (honest list)
-1. **AIEC-contract order chain is not built yet.** Acceptance records the execution model and freezes the price; for `MARKETPLACE` the existing partner matching → order → project → collection → commission pipeline continues. For `AIEC_CONTRACT`, the AIEC order, AIEC invoices, partner engagement and partner payouts are the next phase (brief sections 10, 12).
-2. **Razorpay is not integrated.** No merchant account exists. The existing commission engine and signed bank webhook are unchanged. The integration needs merchant onboarding first.
+1. **AIEC Contract chain** is built (above). Not built: supplier purchase orders and supplier payments for AIEC Contract materials, and an automatic AIEC revenue/GST ledger export to accounting.
+2. **Razorpay** checkout (payment links / orders API) needs merchant keys; only the signed webhook is implemented.
 3. **Supplier RFQs, dispatch updates, supplier ledger and performance score** (brief section 8) are not built.
 4. **Licensed partner bidding for AIEC-contract projects** (brief section 9) uses the existing invitation/quotation flow only.
 5. **Automation retry worker:** events are recorded with status, attempts and idempotency. A background retry of `FAILED` events is not implemented; failures appear in the exception queue.

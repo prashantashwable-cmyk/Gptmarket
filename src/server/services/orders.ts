@@ -4,7 +4,7 @@ import { fromPaise, toPaise } from '@/lib/commission';
 import { type OrderStatus } from '@/lib/enums';
 import { AppError } from '@/lib/errors';
 import { ORDER_MACHINE, assertTransition } from '@/lib/state';
-import { zEnum, zMoney, zOptDate, zOptText, zUuid } from '@/lib/validation';
+import { zEnum, zOptDate, zOptMoney, zOptText, zUuid } from '@/lib/validation';
 import { audit, getSetting, notifyCompany, notifyCustomer, notifyPermission, notifyUsers } from '../audit';
 import { can, requireCompany, requirePerm, type Ctx } from '../ctx';
 import { withCtx, withSystem, type Rec, type Tx } from '../db';
@@ -44,6 +44,29 @@ export async function listOrders(ctx: Ctx, filter: { status?: string; page?: num
 
 export interface OrderGate { key: string; ok: boolean }
 
+/**
+ * Payment milestones that the project freezes at confirmation: from the selected partner quotation
+ * (Marketplace) or from the accepted AIEC package quotation snapshot (AIEC Contract).
+ */
+export async function orderMilestones(tx: Tx, order: Rec): Promise<Array<{ seq: number; name: string; percent: string }>> {
+  if (order.execution_model === 'AIEC_CONTRACT') {
+    const v = await tx.one<{ milestones: Array<{ name: string; percent: number }> }>('select milestones from app.aiec_order_scope($1)', [order.id]);
+    return v.milestones.map((m, i) => ({ seq: i + 1, name: m.name, percent: m.percent.toFixed(2) }));
+  }
+  return tx.query('select seq, name, percent::text as percent from quotation_milestones where version_id = $1 order by seq', [order.quotation_version_id]);
+}
+
+/** Splits a total over milestone percentages in paise; the last milestone absorbs rounding. */
+export function splitByMilestones(total: string, milestones: Array<{ percent: string }>): string[] {
+  const gross = toPaise(total);
+  let allocated = 0n;
+  return milestones.map((m, i) => {
+    const amount = i === milestones.length - 1 ? gross - allocated : (gross * BigInt(Math.round(Number(m.percent) * 100))) / 10000n;
+    allocated += amount;
+    return fromPaise(amount);
+  });
+}
+
 /** Pre-confirmation checklist (spec 5.9). Every gate must pass; capacity is re-checked under lock at confirmation. */
 async function orderGates(tx: Tx, order: Rec): Promise<{ gates: OrderGate[]; active: number; max: number; partnerActive: number; partnerMax: number }> {
   const facts = await complianceFacts(tx, order.company_id);
@@ -51,14 +74,15 @@ async function orderGates(tx: Tx, order: Rec): Promise<{ gates: OrderGate[]; act
   const max = Number(await getSetting(tx, 'pilot_max_active_projects'));
   const active = (await tx.one<{ n: number }>('select app.active_project_count() as n')).n;
   const partnerActive = (await tx.one<{ n: number }>('select app.active_project_count($1) as n', [order.company_id])).n;
-  const milestoneSum = (await tx.one<{ s: string | null }>('select sum(percent)::text as s from quotation_milestones where version_id = $1', [order.quotation_version_id])).s;
+  const aiec = order.execution_model === 'AIEC_CONTRACT';
+  const milestoneSum = (await orderMilestones(tx, order)).reduce((sum, m) => sum + Math.round(Number(m.percent) * 100), 0);
   const gates: OrderGate[] = [
     { key: 'customerSelection', ok: true },
     { key: 'partnerAcceptance', ok: ['PARTNER_ACCEPTED', 'CONFIRMED', 'COMPLETED'].includes(order.status) || (order.status === 'ON_HOLD' && Boolean(order.partner_responded_at)) },
-    { key: 'frozenScope', ok: Boolean(order.quotation_version_id) },
+    { key: 'frozenScope', ok: Boolean(aiec ? order.market_quotation_version_id : order.quotation_version_id) },
     { key: 'contract', ok: Boolean(order.contract_reference && order.contract_accepted_on) },
-    { key: 'paymentSchedule', ok: milestoneSum !== null && Number(milestoneSum) === 100 },
-    { key: 'eligibleValue', ok: order.eligible_value !== null },
+    { key: 'paymentSchedule', ok: milestoneSum === 10000 },
+    aiec ? { key: 'partnerPayout', ok: order.partner_payout_value !== null } : { key: 'eligibleValue', ok: order.eligible_value !== null },
     { key: 'approvalPath', ok: Boolean(order.approval_path_note) },
     { key: 'licence', ok: facts.licenceDaysLeft !== null },
     { key: 'insurance', ok: facts.insuranceDaysLeft !== null },
@@ -77,11 +101,15 @@ export async function getOrder(ctx: Ctx, id: string) {
               v.version_no, v.manufacturer, v.model, v.total_amount, v.warranty_months, su.full_name as supervisor_name,
               (select id from projects p where p.order_id = o.id) as project_id
          from orders o join companies co on co.id = o.company_id join customers c on c.id = o.customer_id join leads l on l.id = o.lead_id
-         join quotations q on q.id = o.quotation_id join quotation_versions v on v.id = o.quotation_version_id
+         left join quotations q on q.id = o.quotation_id left join quotation_versions v on v.id = o.quotation_version_id
          left join users su on su.id = o.supervisor_user_id where o.id = $1`, [id]);
+    if (order.execution_model === 'AIEC_CONTRACT') {
+      const mq = await tx.maybeOne<Rec>('select quotation_number, version_no, package_title from app.aiec_order_scope($1)', [order.id]);
+      Object.assign(order, { quotation_number: mq?.quotation_number ?? null, version_no: mq?.version_no ?? null, manufacturer: mq?.package_title ?? null, model: null });
+    }
     const [events, milestones, supervisors] = await Promise.all([
       tx.query<Rec>('select e.*, u.full_name as actor from order_state_events e left join users u on u.id = e.actor_id where e.order_id = $1 order by e.created_at', [id]),
-      tx.query<Rec>('select seq, name, percent from quotation_milestones where version_id = $1 order by seq', [order.quotation_version_id]),
+      orderMilestones(tx, order) as Promise<Rec[]>,
       ctx.isInternal || ctx.companyId === order.company_id
         ? tx.query<Rec>(
           `select distinct u.id, u.full_name from user_roles ur join users u on u.id = ur.user_id
@@ -114,10 +142,13 @@ export async function respondOrder(ctx: Ctx, input: z.infer<typeof respondOrderS
     } else {
       await tx.exec('update orders set partner_responded_at = now(), partner_responded_by = $2, partner_decline_reason = $3 where id = $1', [input.id, ctx.userId, input.reason]);
       await setOrderStatus(tx, ctx, input.id, order.status, 'PARTNER_DECLINED', input.reason ?? null);
-      await tx.exec(`update quotations set status = 'WITHDRAWN', updated_at = now() where id = $1`, [order.quotation_id]);
-      await tx.exec(`update quotations q set status = 'SUBMITTED', updated_at = now() from quotation_versions v
-                      where v.id = q.current_version_id and v.submitted_at is not null and q.lead_id = $1 and q.status = 'NOT_SELECTED'`, [order.lead_id]);
-      await transitionLead(tx, ctx, order.lead_id, 'CUSTOMER_REVIEW', { note: 'Selected partner declined the order' });
+      if (order.execution_model === 'MARKETPLACE') {
+        await tx.exec(`update quotations set status = 'WITHDRAWN', updated_at = now() where id = $1`, [order.quotation_id]);
+        await tx.exec(`update quotations q set status = 'SUBMITTED', updated_at = now() from quotation_versions v
+                        where v.id = q.current_version_id and v.submitted_at is not null and q.lead_id = $1 and q.status = 'NOT_SELECTED'`, [order.lead_id]);
+        await transitionLead(tx, ctx, order.lead_id, 'CUSTOMER_REVIEW', { note: 'Selected partner declined the order' });
+      }
+      // AIEC Contract: the customer's contract with AIEC stands; AIEC engages another eligible partner.
       await notifyPermission(tx, 'order.manage', 'ORDER_DECLINED', { number: order.order_number }, `/admin/orders/${input.id}`);
     }
     await notifyCustomer(tx, order.customer_id, accept ? 'ORDER_ACCEPTED' : 'ORDER_DECLINED', { number: order.order_number }, `/customer/projects/${order.lead_id}`);
@@ -147,7 +178,7 @@ export async function assignSupervisor(ctx: Ctx, orderId: string, userId: string
 }
 
 export const orderTermsSchema = z.object({
-  id: zUuid, eligibleValue: zMoney, exclusionsNote: zOptText(1000), contractReference: zOptText(200), contractAcceptedOn: zOptDate, approvalPathNote: zOptText(2000),
+  id: zUuid, eligibleValue: zOptMoney, exclusionsNote: zOptText(1000), contractReference: zOptText(200), contractAcceptedOn: zOptDate, approvalPathNote: zOptText(2000),
 });
 /** Records the commercial frame: net eligible value (agreement-defined exclusions), contract and approval path. */
 export async function updateOrderTerms(ctx: Ctx, input: z.infer<typeof orderTermsSchema>, contractFile: Upload): Promise<void> {
@@ -155,18 +186,21 @@ export async function updateOrderTerms(ctx: Ctx, input: z.infer<typeof orderTerm
   await withCtx(ctx, async (tx) => {
     const order = await tx.one<Rec>('select * from orders where id = $1 for update', [input.id]);
     if (!['PENDING_PARTNER_ACCEPTANCE', 'PARTNER_ACCEPTED', 'ON_HOLD'].includes(order.status)) throw new AppError('INVALID_TRANSITION');
-    if (toPaise(input.eligibleValue) > toPaise(order.gross_order_value)) throw new AppError('ELIGIBLE_VALUE_EXCEEDS', undefined, { eligibleValue: 'INVALID_AMOUNT' });
+    // Commission applies to Marketplace orders only; AIEC Contract orders carry no eligible value.
+    const eligibleValue = order.execution_model === 'AIEC_CONTRACT' ? null : input.eligibleValue;
+    if (order.execution_model === 'MARKETPLACE' && !eligibleValue) throw new AppError('VALIDATION', undefined, { eligibleValue: 'REQUIRED' });
+    if (eligibleValue && toPaise(eligibleValue) > toPaise(order.gross_order_value)) throw new AppError('ELIGIBLE_VALUE_EXCEEDS', undefined, { eligibleValue: 'INVALID_AMOUNT' });
     const fileId = contractFile ? await saveFile(tx, ctx, contractFile, 'CONTRACT', { companyId: order.company_id, customerId: order.customer_id }) : null;
     await tx.exec(
       `update orders set eligible_value = $2, exclusions_note = $3, contract_reference = $4, contract_accepted_on = $5, approval_path_note = $6,
               contract_file_id = coalesce($7, contract_file_id), updated_at = now() where id = $1`,
-      [input.id, input.eligibleValue, input.exclusionsNote ?? null, input.contractReference ?? null, input.contractAcceptedOn ?? null, input.approvalPathNote ?? null, fileId]);
-    await audit(tx, ctx, 'order.terms', 'order', input.id, { eligibleValue: input.eligibleValue, contractReference: input.contractReference ?? null }, order.company_id);
+      [input.id, eligibleValue, input.exclusionsNote ?? null, input.contractReference ?? null, input.contractAcceptedOn ?? null, input.approvalPathNote ?? null, fileId]);
+    await audit(tx, ctx, 'order.terms', 'order', input.id, { eligibleValue, contractReference: input.contractReference ?? null }, order.company_id);
   });
 }
 
 const GATE_ERRORS: Record<string, string> = {
-  partnerAcceptance: 'ORDER_NOT_ACCEPTED', contract: 'CONTRACT_REQUIRED', paymentSchedule: 'MILESTONES_TOTAL', eligibleValue: 'ELIGIBLE_VALUE_REQUIRED',
+  partnerAcceptance: 'ORDER_NOT_ACCEPTED', partnerPayout: 'PAYOUT_REQUIRED', contract: 'CONTRACT_REQUIRED', paymentSchedule: 'MILESTONES_TOTAL', eligibleValue: 'ELIGIBLE_VALUE_REQUIRED',
   approvalPath: 'APPROVAL_PATH_REQUIRED', licence: 'LICENCE_INVALID', insurance: 'INSURANCE_INVALID', partnerStatus: 'PARTNER_NOT_ACTIVE',
   aiecCapacity: 'CAPACITY_FULL', partnerCapacity: 'PARTNER_CAPACITY_FULL', supervisor: 'SUPERVISOR_REQUIRED',
 };
@@ -196,18 +230,23 @@ export async function confirmOrder(ctx: Ctx, orderId: string): Promise<string> {
     await tx.exec('insert into project_team_assignments (project_id, user_id, company_id, assigned_by) values ($1,$2,$3,$4)',
       [project.id, order.supervisor_user_id, order.company_id, ctx.userId]);
 
-    // Payment milestones are frozen from the selected quotation version; the last one absorbs rounding.
-    const milestones = await tx.query<Rec>('select seq, name, percent::text as percent from quotation_milestones where version_id = $1 order by seq', [order.quotation_version_id]);
-    const gross = toPaise(order.gross_order_value);
-    let allocated = 0n;
+    // Payment milestones are frozen from the selected quotation; the last one absorbs rounding.
+    const milestones = await orderMilestones(tx, order);
+    const amounts = splitByMilestones(order.gross_order_value, milestones);
+    const payouts = order.execution_model === 'AIEC_CONTRACT' ? splitByMilestones(order.partner_payout_value, milestones) : [];
     for (const [i, m] of milestones.entries()) {
-      const amount = i === milestones.length - 1 ? gross - allocated : (gross * BigInt(Math.round(Number(m.percent) * 100))) / 10000n;
-      allocated += amount;
-      await tx.exec('insert into project_milestones (project_id, company_id, seq, name, percent, amount_due) values ($1,$2,$3,$4,$5,$6)',
-        [project.id, order.company_id, m.seq, m.name, m.percent, fromPaise(amount)]);
+      const row = await tx.one<{ id: string }>('insert into project_milestones (project_id, company_id, seq, name, percent, amount_due) values ($1,$2,$3,$4,$5,$6) returning id',
+        [project.id, order.company_id, m.seq, m.name, m.percent, amounts[i]]);
+      // AIEC Contract: the engaged partner is paid by AIEC per milestone, released only after the milestone is verified.
+      if (payouts.length) {
+        await tx.exec('insert into partner_payouts (order_id, project_id, milestone_id, company_id, amount) values ($1,$2,$3,$4,$5)',
+          [orderId, project.id, row.id, order.company_id, payouts[i]]);
+      }
     }
-    await tx.exec(`update quotations set status = 'NOT_SELECTED', updated_at = now() where lead_id = $1 and id <> $2 and status not in ('WITHDRAWN','EXPIRED','NOT_SELECTED')`,
-      [order.lead_id, order.quotation_id]);
+    if (order.execution_model === 'MARKETPLACE') {
+      await tx.exec(`update quotations set status = 'NOT_SELECTED', updated_at = now() where lead_id = $1 and id <> $2 and status not in ('WITHDRAWN','EXPIRED','NOT_SELECTED')`,
+        [order.lead_id, order.quotation_id]);
+    }
     await transitionLead(tx, ctx, order.lead_id, 'CONFIRMED', { note: `Order ${order.order_number} confirmed` });
     await notifyCompany(tx, order.company_id, 'ORDER_CONFIRMED', { number: order.order_number }, `/partner/projects/${project.id}`);
     await notifyUsers(tx, [order.supervisor_user_id], 'PROJECT_ASSIGNED', { number: project.project_number }, `/partner/projects/${project.id}`);

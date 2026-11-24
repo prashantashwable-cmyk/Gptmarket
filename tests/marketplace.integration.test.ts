@@ -1,14 +1,20 @@
 // Marketplace integration tests against a real PostgreSQL database (TEST_DATABASE_URL, wiped).
 // They exercise the shopping journey, both engines, quotation versioning and approvals, supplier
 // controls and row-level security through the same services the screens use.
+import { createHmac } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { loadEnv, migrate } from '../scripts/migrate';
-import { DEMO_PNG, leadInput, seedStaff, surveyLead, type Staff } from '../scripts/seed';
+import { DEMO_PDF, DEMO_PNG, leadInput, seedPartner, seedStaff, surveyLead, type Staff } from '../scripts/seed';
 import { seedMarketplace } from '../scripts/seed-market';
 import { ensureUserForPhone } from '@/server/authcore';
 import { loadCtx, type Ctx } from '@/server/ctx';
 import { closePool, withCtx, withSystem } from '@/server/db';
 import { createLead } from '@/server/services/leads';
+import { actOnPayout, createAiecOrder, getAiecFinance, getMyAiecBilling, handleRazorpayWebhook, issueCustomerInvoice, recordCustomerPayment, refundCustomerPayment, verifyCustomerPayment } from '@/server/services/aiec-contract';
+import { submitCollection } from '@/server/services/money';
+import { confirmOrder, getOrder, respondOrder } from '@/server/services/orders';
+import { addTeamMember } from '@/server/services/partners';
+import { updateMilestone } from '@/server/services/projects';
 import { reviewPrice, reviewProduct, saveSupplierProduct, setSupplierStatus, submitPrice } from '@/server/services/catalogue';
 import { engineeringDecision, expireMarketQuotations, getMarketQuotation, issueNewVersion, pricingExceptionDecision, requestQuotation, respondQuotation } from '@/server/services/market-quotes';
 import { getMarketOverview } from '@/server/services/market-admin';
@@ -300,5 +306,139 @@ describe('supplier marketplace controls', () => {
     const customer = await newCustomer();
     expect(await code(createPricingDraft(customer, DEMO_PRICING, null))).toBe('FORBIDDEN');
     expect(await code(createPricingDraft(suppliers[0], DEMO_PRICING, null))).toBe('FORBIDDEN');
+  });
+});
+
+describe('AIEC Contract execution: order, invoices, payments, refunds, payouts', () => {
+  let customer: Ctx; let leadId: string; let quotationId: string; let orderId: string; let projectId: string;
+  let partner: { companyId: string; ctx: Ctx }; let farPartner: { companyId: string; ctx: Ctx };
+  let milestones: Array<{ id: string; amount_due: string; seq: number }>;
+
+  it('prepares an accepted AIEC Contract quotation and two partners', async () => {
+    partner = await seedPartner(s.admin, { legalName: 'AIEC Execution Partner', adminName: 'Exec Admin', adminPhone: '+919300000011', pan: 'AAACX1111X', zones: ['WAKAD', 'PUNE'], maxProjects: 3 });
+    farPartner = await seedPartner(s.admin, { legalName: 'Far Away Partner', adminName: 'Far Admin', adminPhone: '+919300000012', pan: 'AAACY2222Y', zones: ['CHAKAN'], maxProjects: 3 });
+    await addTeamMember(partner.ctx, { name: 'Exec Supervisor', phone: '+919300000021', role: 'PARTNER_SUPERVISOR' });
+    customer = await newCustomer();
+    leadId = await createShopProject(customer, project(), []);
+    await surveyLead(s, leadId, 5);
+    const cart = await startConfiguration(customer, { leadId, packageVersionId: await versionOf('BASIC') });
+    quotationId = (await requestQuotation(customer, { configId: cart, requestId: uuid() })).quotationId;
+    const v = (await getMarketQuotation(s.ops, quotationId)).current!;
+    await engineeringDecision(engineer, { versionId: v.id, decision: 'APPROVED', note: 'Survey checked', acknowledged: [] });
+    await respondQuotation(customer, { id: quotationId, decision: 'ACCEPT', executionModel: 'AIEC_CONTRACT', termsAccepted: true });
+  });
+
+  const orderInput = (over: Record<string, unknown> = {}) => ({
+    quotationId, companyId: partner.companyId, partnerPayoutValue: '150000', contractReference: 'AIEC-CTR-001', contractAcceptedOn: isoDateIST(),
+    approvalPathNote: 'Partner applies for erection permission; AIEC tracks inspection.', ...over,
+  });
+
+  it('refuses a partner outside the zone and a payout that would leave AIEC below its material cost', async () => {
+    expect(await code(createAiecOrder(s.ops, orderInput({ companyId: farPartner.companyId }), null))).toBe('PARTNER_ZONE');
+    expect(await code(createAiecOrder(s.ops, orderInput({ partnerPayoutValue: '99999999' }), null))).toBe('PAYOUT_EXCEEDS_BUDGET');
+    expect(await code(createAiecOrder(customer, orderInput(), null))).toBe('FORBIDDEN');
+  });
+
+  it('creates the order once, moves the lead to order pending and carries no commission', async () => {
+    orderId = await createAiecOrder(s.ops, orderInput(), DEMO_PDF);
+    expect(await code(createAiecOrder(s.ops, orderInput(), null))).toBe('ORDER_EXISTS');
+    const o = (await sql<{ execution_model: string; eligible_value: string | null; gross_order_value: string; status: string }>(
+      'select execution_model, eligible_value, gross_order_value::text, status from orders where id = $1', [orderId]))[0];
+    const q = (await getMarketQuotation(s.ops, quotationId)).current!;
+    expect(o).toMatchObject({ execution_model: 'AIEC_CONTRACT', eligible_value: null, status: 'PENDING_PARTNER_ACCEPTANCE', gross_order_value: q.total_payable });
+    expect((await sql<{ status: string }>('select status from leads where id = $1', [leadId]))[0].status).toBe('ORDER_PENDING');
+  });
+
+  it('confirms through the standard checklist and freezes the quotation milestones and partner payouts', async () => {
+    const sup = (await sql<{ user_id: string }>(`select user_id from user_roles where company_id = $1 and role_code = 'PARTNER_SUPERVISOR'`, [partner.companyId]))[0].user_id;
+    await respondOrder(partner.ctx, { id: orderId, decision: 'accept', supervisorUserId: sup });
+    projectId = await confirmOrder(s.ops, orderId);
+    milestones = await sql('select id, amount_due::text, seq from project_milestones where project_id = $1 order by seq', [projectId]);
+    expect(milestones).toHaveLength(4);
+    const gross = (await sql<{ g: string }>('select gross_order_value::text as g from orders where id = $1', [orderId]))[0].g;
+    expect(milestones.reduce((a, m) => a + Math.round(Number(m.amount_due) * 100), 0)).toBe(Math.round(Number(gross) * 100));
+    const payouts = await sql<{ amount: string }>('select amount::text from partner_payouts where order_id = $1', [orderId]);
+    expect(payouts.reduce((a, p) => a + Math.round(Number(p.amount) * 100), 0)).toBe(15000000);
+    expect((await sql<{ status: string }>('select status from leads where id = $1', [leadId]))[0].status).toBe('CONFIRMED');
+    // The engaged partner sees the order scope and milestone schedule, but not the package quotation itself.
+    const seen = await getOrder(partner.ctx, orderId);
+    expect(seen.milestones).toHaveLength(4);
+    expect(seen.order.quotation_number).toMatch(/^MQ-/);
+    expect(await withCtx(partner.ctx, (tx) => tx.query('select * from market_quotation_versions'))).toEqual([]);
+  });
+
+  it('does not let the partner record customer collections on an AIEC Contract project', async () => {
+    expect(await code(submitCollection(partner.ctx, { projectId, milestoneId: milestones[0].id, amountReceived: '1000', excludedAmount: '0', collectionDate: isoDateIST(),
+      paymentMode: 'BANK_TRANSFER', bankReference: 'UTR-X', evidenceKind: 'BANK_PROOF' } as Parameters<typeof submitCollection>[1], DEMO_PDF))).toBe('COLLECTION_NOT_APPLICABLE');
+  });
+
+  let invoiceId: string;
+  it('issues one GST invoice per milestone', async () => {
+    invoiceId = await issueCustomerInvoice(s.ops, { milestoneId: milestones[0].id, dueDays: 7 });
+    expect(await code(issueCustomerInvoice(s.ops, { milestoneId: milestones[0].id, dueDays: 7 }))).toBe('INVOICE_EXISTS');
+    const inv = (await sql<{ taxable_amount: string; gst_amount: string; total_amount: string }>('select taxable_amount::text, gst_amount::text, total_amount::text from customer_invoices where id = $1', [invoiceId]))[0];
+    expect(inv.total_amount).toBe(milestones[0].amount_due);
+    expect(Math.round(Number(inv.taxable_amount) * 100) + Math.round(Number(inv.gst_amount) * 100)).toBe(Math.round(Number(inv.total_amount) * 100));
+    expect(Math.abs(Number(inv.gst_amount) - Number(inv.taxable_amount) * 0.18)).toBeLessThan(0.02);
+  });
+
+  it('verifies payments only through finance staff, with maker-checker, and never over the invoice', async () => {
+    const inv = (await sql<{ total_amount: string }>('select total_amount::text from customer_invoices where id = $1', [invoiceId]))[0];
+    expect(await code(recordCustomerPayment(customer, { invoiceId, amount: String(Number(inv.total_amount) + 1), paymentMode: 'UPI', reference: 'UPI-OVER', paidOn: isoDateIST() }))).toBe('AMOUNT_EXCEEDS');
+    const claim = await recordCustomerPayment(customer, { invoiceId, amount: inv.total_amount, paymentMode: 'UPI', reference: 'UPI-REF-0001', paidOn: isoDateIST() });
+    expect(await code(verifyCustomerPayment(customer, { id: claim, decision: 'VERIFIED' }))).toBe('FORBIDDEN');
+    expect((await sql<{ status: string }>('select status from customer_invoices where id = $1', [invoiceId]))[0].status).toBe('ISSUED');
+    await verifyCustomerPayment(s.ops, { id: claim, decision: 'VERIFIED', note: 'Matched bank statement' });
+    expect((await sql<{ status: string }>('select status from customer_invoices where id = $1', [invoiceId]))[0].status).toBe('PAID');
+    const inv2 = await issueCustomerInvoice(s.ops, { milestoneId: milestones[1].id, dueDays: 7 });
+    const staffClaim = await recordCustomerPayment(s.ops, { invoiceId: inv2, amount: '1000', paymentMode: 'BANK_TRANSFER', reference: 'NEFT-0001', paidOn: isoDateIST() });
+    expect(await code(verifyCustomerPayment(s.ops, { id: staffClaim, decision: 'VERIFIED' }))).toBe('SAME_PERSON_VERIFY');
+    await verifyCustomerPayment(s.admin, { id: staffClaim, decision: 'VERIFIED' });
+    expect((await sql<{ status: string }>('select status from customer_invoices where id = $1', [inv2]))[0].status).toBe('PARTLY_PAID');
+  });
+
+  it('handles refunds and keeps invoice amounts immutable', async () => {
+    const pay = (await sql<{ id: string; amount: string }>(`select id, amount::text from customer_payments where invoice_id = $1 and status = 'VERIFIED'`, [invoiceId]))[0];
+    expect(await code(refundCustomerPayment(s.ops, { paymentId: pay.id, amount: String(Number(pay.amount) + 1), reason: 'Too much' }))).toBe('VALIDATION');
+    await refundCustomerPayment(s.ops, { paymentId: pay.id, amount: '5000', reason: 'Customer removed an add-on', reference: 'RFND-1' });
+    expect((await sql<{ status: string }>('select status from customer_invoices where id = $1', [invoiceId]))[0].status).toBe('PARTLY_PAID');
+    expect(await code(withSystem((tx) => tx.exec('update customer_invoices set total_amount = 1 where id = $1', [invoiceId])))).toBe('FORBIDDEN');
+  });
+
+  it('releases a partner payout only to the owner, after the milestone is completed, and pays it with a reference', async () => {
+    const po = (await sql<{ id: string }>('select id from partner_payouts where milestone_id = $1', [milestones[0].id]))[0].id;
+    expect(await code(actOnPayout(s.ops, { id: po, action: 'APPROVE' }))).toBe('FORBIDDEN');
+    expect(await code(actOnPayout(s.admin, { id: po, action: 'APPROVE' }))).toBe('MILESTONE_NOT_COMPLETED');
+    await updateMilestone(partner.ctx, { id: milestones[0].id, status: 'COMPLETED' });
+    await actOnPayout(s.admin, { id: po, action: 'APPROVE' });
+    expect(await code(actOnPayout(s.admin, { id: po, action: 'PAID' }))).toBe('VALIDATION');
+    await actOnPayout(s.admin, { id: po, action: 'PAID', reference: 'PAYOUT-UTR-1', paidOn: isoDateIST() });
+    const f = await getAiecFinance(partner.ctx, orderId);
+    expect(f!.payouts.find((p) => p.id === po)!.status).toBe('PAID');
+    expect(f!.invoices).toEqual([]);
+    expect(await withCtx(partner.ctx, (tx) => tx.query('select * from customer_payments'))).toEqual([]);
+  });
+
+  it('verifies Razorpay webhooks by signature, records the payment once and refuses until configured', async () => {
+    const inv3 = await issueCustomerInvoice(s.ops, { milestoneId: milestones[2].id, dueDays: 7 });
+    const body = JSON.stringify({ event: 'payment.captured', payload: { payment: { entity: { id: 'pay_TEST123', amount: 100000, currency: 'INR', notes: { invoice_id: inv3 } } } } });
+    delete process.env.RAZORPAY_WEBHOOK_SECRET;
+    expect(await code(handleRazorpayWebhook(body, 'x', 'evt_1'))).toBe('GATEWAY_NOT_CONFIGURED');
+    process.env.RAZORPAY_WEBHOOK_SECRET = 'test-razorpay-secret';
+    expect(await code(handleRazorpayWebhook(body, 'bad', 'evt_1'))).toBe('FORBIDDEN');
+    const sig = createHmac('sha256', 'test-razorpay-secret').update(body).digest('hex');
+    expect(await handleRazorpayWebhook(body, sig, 'evt_1')).toEqual({ status: 'processed' });
+    expect(await handleRazorpayWebhook(body, sig, 'evt_1')).toEqual({ status: 'duplicate' });
+    expect(await handleRazorpayWebhook(body, sig, 'evt_2')).toEqual({ status: 'duplicate' });
+    const rows = await sql<{ status: string; amount: string; verification_basis: string }>('select status, amount::text, verification_basis from customer_payments where invoice_id = $1', [inv3]);
+    expect(rows).toEqual([{ status: 'VERIFIED', amount: '1000.00', verification_basis: 'GATEWAY_WEBHOOK' }]);
+    delete process.env.RAZORPAY_WEBHOOK_SECRET;
+  });
+
+  it('shows the customer only their own invoices and payments', async () => {
+    const mine = await getMyAiecBilling(customer, leadId);
+    expect(mine.invoices.length).toBe(3);
+    const other = await newCustomer();
+    expect((await getMyAiecBilling(other, leadId)).invoices).toEqual([]);
   });
 });

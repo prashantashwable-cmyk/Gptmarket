@@ -173,3 +173,7 @@ export type CompatLevel = (typeof COMPAT_LEVEL)[number];
 export const EXECUTION_MODEL = ['AIEC_CONTRACT', 'MARKETPLACE'] as const;
 export type ExecutionModel = (typeof EXECUTION_MODEL)[number];
 export const APPROVAL_KIND = ['ENGINEERING', 'PRICING_EXCEPTION'] as const;
+export const CUSTOMER_INVOICE_STATUS = ['ISSUED', 'PARTLY_PAID', 'PAID', 'CANCELLED'] as const;
+export const CUSTOMER_PAYMENT_STATUS = ['PENDING_VERIFICATION', 'VERIFIED', 'REJECTED'] as const;
+export const CUSTOMER_PAYMENT_MODE = ['BANK_TRANSFER', 'UPI', 'CHEQUE', 'DEMAND_DRAFT', 'CARD', 'NET_BANKING', 'LOAN_DISBURSEMENT', 'GATEWAY'] as const;
+export const PAYOUT_STATUS = ['PENDING', 'APPROVED', 'PAID', 'HELD'] as const;

@@ -34,8 +34,10 @@ export async function submitCollection(ctx: Ctx, input: z.infer<typeof collectio
   if (input.collectionDate > isoDateIST()) throw new AppError('VALIDATION', undefined, { collectionDate: 'INVALID_DATE' });
   return withCtx(ctx, async (tx) => {
     const project = await tx.one<Rec>(
-      `select p.id, p.order_id, p.customer_id, p.lead_id, p.project_number, o.gross_order_value from projects p join orders o on o.id = p.order_id
+      `select p.id, p.order_id, p.customer_id, p.lead_id, p.project_number, o.gross_order_value, o.execution_model from projects p join orders o on o.id = p.order_id
         where p.id = $1 and p.company_id = $2 for update of p`, [input.projectId, companyId]);
+    // Under the AIEC Contract the customer pays AIEC, not the partner: there is nothing for the partner to collect.
+    if (project.execution_model === 'AIEC_CONTRACT') throw new AppError('COLLECTION_NOT_APPLICABLE');
     if (input.milestoneId) await tx.one('select 1 from project_milestones where id = $1 and project_id = $2', [input.milestoneId, input.projectId]);
     const collected = (await tx.one<{ s: string }>(
       `select coalesce(sum(amount_received - refunded_amount), 0)::text as s from partner_collections where order_id = $1 and status <> 'REJECTED'`, [project.order_id])).s;

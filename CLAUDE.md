@@ -58,8 +58,11 @@ Before every push run: `npx tsc --noEmit && npm run lint && npx tsx scripts/i18n
 Lift marketplace (added on top, see `docs/marketplace/03-delivery-report.md`): migration `0005_marketplace.sql`, engines `src/lib/pricing.ts` and
 `src/lib/compatibility.ts`, services `catalogue`, `packages`, `rules`, `market-engine`, `shop`, `market-quotes`, `market-admin`, `automation`, `quotation-pdf`,
 actions `src/app/actions/market.ts`, screens `/customer/shop/*`, `/admin/marketplace/*`, `/partner/marketplace`, dictionaries `src/i18n/messages/*/market.ts`.
-Supplier costs and pricing rules are read only on the trusted path (`market-engine.ts`); never return them to customers. 100 tests.
-Next: AIEC-contract order/invoice/payout chain, Razorpay (after merchant onboarding), supplier RFQ/dispatch/ledger, automation retry worker.
+Supplier costs and pricing rules are read only on the trusted path (`market-engine.ts`); never return them to customers.
+AIEC Contract chain: migration `0006_aiec_contract.sql`, service `aiec-contract.ts` (orders from accepted quotations, invoices, maker-checker payments,
+refunds, owner-only partner payouts, Razorpay webhook awaiting `RAZORPAY_WEBHOOK_SECRET`). `orders.execution_model` separates the two models; partners read
+AIEC order scope only via `app.aiec_order_scope()`.
+Next: Razorpay checkout (after merchant onboarding), supplier POs/payments, supplier RFQ/dispatch/ledger, automation retry worker.
 
 Open items (need the owner, not code): see README "Before going live" and `docs/compliance-register.md`.
 Not built: real SMS / WhatsApp / lender / payment / e-sign / maps integrations, PostGIS, native mobile apps, object storage.

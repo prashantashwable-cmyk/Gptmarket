@@ -1,15 +1,18 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Download } from 'lucide-react';
-import { engineeringDecisionAction, issueVersionAction, pricingDecisionAction } from '@/app/actions/market';
+import { createAiecOrderAction, engineeringDecisionAction, issueVersionAction, pricingDecisionAction } from '@/app/actions/market';
 import { Timeline } from '@/components/common';
 import { QuotationDocument } from '@/components/market/quotation-doc';
 import { findingText } from '@/components/market/views';
 import { Alert, Badge, PageHeader, Section, buttonClass } from '@/components/ui';
-import { ActionForm, CheckboxField, Field, SubmitButton, TextareaField } from '@/components/ui/form';
+import { ActionForm, CheckboxField, Field, SelectField, SubmitButton, TextareaField } from '@/components/ui/form';
 import { formatDate, formatDateTime, formatINR } from '@/lib/format';
 import { isUuid, load, pageCtx } from '@/server/page';
+import { getAiecOrderSetup } from '@/server/services/aiec-contract';
 import { getMarketQuotation } from '@/server/services/market-quotes';
+import { isoDateIST } from '@/lib/format';
+import { StatusBadge } from '@/components/ui';
 
 export default async function AdminMarketQuotation({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -17,6 +20,8 @@ export default async function AdminMarketQuotation({ params }: { params: Promise
   const { ctx, t, locale } = await pageCtx('admin');
   const { quotation: q, current: v, versions, approvals, costs, events } = await load(() => getMarketQuotation(ctx, id));
   if (!v) notFound();
+  const setup = await load(() => getAiecOrderSetup(ctx, id));
+  const canOrder = ctx.permissions.has('order.manage') && ctx.permissions.has('market.quote');
   const cost = costs.find((c) => c.version_id === v.id);
   const yellow = (v.snapshot.compat.findings as Array<{ code: string; level: string; params?: Record<string, string | number> }>).filter((f) => f.level === 'YELLOW');
   const yellowCodes = [...new Set(yellow.map((f) => f.code))];
@@ -43,6 +48,29 @@ export default async function AdminMarketQuotation({ params }: { params: Promise
               </dl>
               {cost.exceptions.length > 0 && <div className="mt-2 flex flex-wrap gap-1">{cost.exceptions.map((e: string) => <Badge key={e} tone="red">{t(`mk.adm.exc.${e}`)}</Badge>)}</div>}
               {v.discount_reason && <p className="mt-2 text-xs text-slate-600">{t('mk.adm.discountReason')}: {v.discount_reason}</p>}
+            </Section>
+          )}
+          {setup && (
+            <Section title={t('mk.aiec.orderTitle')} description={t('mk.aiec.orderHint')}>
+              {setup.orders.map((o) => (
+                <p key={o.id} className="mb-1 flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <Link href={`/admin/orders/${o.id}`} className="font-medium text-brand-700 hover:underline">{o.order_number} · {o.legal_name}</Link>
+                  <StatusBadge value={o.status} label={t(`e.orderStatus.${o.status}`)} />
+                </p>
+              ))}
+              {!setup.live && canOrder && (setup.partners.length === 0 ? <Alert tone="amber">{t('mk.aiec.noPartners')}</Alert> : (
+                <ActionForm action={createAiecOrderAction} className="mt-2 space-y-2"><input type="hidden" name="quotationId" value={id} />
+                  <SelectField name="companyId" label={t('mk.aiec.partner')} required placeholder={t('common.select')}
+                    options={setup.partners.map((p) => ({ value: p.id, label: t('mk.aiec.partnerOption', { name: p.legal_name, active: p.active_projects, max: p.max_concurrent_projects }) }))} />
+                  <Field name="partnerPayoutValue" label={t('mk.aiec.partnerPayout')} inputMode="decimal" required hint={t('mk.aiec.maxPayout', { amount: formatINR(setup.maxPayout) })} />
+                  <TextareaField name="scopeNote" label={t('mk.aiec.scope')} rows={2} />
+                  <Field name="contractReference" label={t('f.contractReference')} required />
+                  <Field name="contractAcceptedOn" type="date" label={t('f.contractAcceptedOn')} defaultValue={isoDateIST()} required />
+                  <Field name="file" type="file" accept="application/pdf" label={t('f.contractDocument')} hint={t('f.fileHint')} />
+                  <TextareaField name="approvalPathNote" label={t('f.approvalPath')} rows={2} required hint={t('f.approvalPathHint')} />
+                  <SubmitButton size="sm">{t('mk.aiec.createOrder')}</SubmitButton>
+                </ActionForm>
+              ))}
             </Section>
           )}
           {q.status === 'ESTIMATE' && <Alert tone="amber">{t('mk.adm.estimateHint')}</Alert>}

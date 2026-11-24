@@ -87,3 +87,4 @@ Each alert is raised once per record (and once per threshold for expiries), trac
 Marketplace writes are server actions in `src/app/actions/market.ts`, calling the services listed in
 `docs/marketplace/03-delivery-report.md`. `POST /api/jobs/housekeeping` now also expires package
 quotations past their validity date (`marketQuotationsExpired` in the response).
+| `POST /api/webhooks/razorpay` | Razorpay `payment.captured` for AIEC Contract invoices. HMAC-SHA256 signature in `X-Razorpay-Signature`, replay-safe; 503 until `RAZORPAY_WEBHOOK_SECRET` is configured |

@@ -22,7 +22,8 @@ import { isoDateIST } from '../src/lib/format';
 import { loadEnv } from './migrate';
 import { seedMarketplace } from './seed-market';
 import { createShopProject, setCartOption, startConfiguration } from '../src/server/services/shop';
-import { requestQuotation } from '../src/server/services/market-quotes';
+import { engineeringDecision, getMarketQuotation, requestQuotation, respondQuotation } from '../src/server/services/market-quotes';
+import { createAiecOrder, issueCustomerInvoice, recordCustomerPayment, verifyCustomerPayment } from '../src/server/services/aiec-contract';
 
 export const DEMO_PDF = { name: 'demo-document.pdf', type: 'application/pdf', bytes: Buffer.from('%PDF-1.4\n% AIEC demo placeholder document\n%%EOF\n') };
 export const DEMO_PNG = {
@@ -228,7 +229,7 @@ export async function seedDemo(): Promise<void> {
   await withSystem((tx) => tx.exec('update leads set is_demo = true'));
 
   // Lift marketplace: demo suppliers, approved products and prices, demo rules, four packages and a shopping customer.
-  await seedMarketplace(admin, { supplierCompanyId: supplierId, supplierPhone: '+919000000014' });
+  const market = await seedMarketplace(admin, { supplierCompanyId: supplierId, supplierPhone: '+919000000014' });
   const shopProject = await createShopProject(customer1, {
     projectName: 'Patil Residency C-Wing', address: 'Patil Residency C-Wing, Wakad, Pune', zoneId: wakad, buildingType: 'RESIDENTIAL_APARTMENT',
     buildingAge: 'NEW', purpose: 'PASSENGER', persons: 6, ratedLoadKg: 408, speedMps: 1, floors: 5, stops: 5, usageFrequency: 'MEDIUM', accessibility: false,
@@ -242,6 +243,31 @@ export async function seedDemo(): Promise<void> {
   await requestQuotation(customer1, { configId: cartId, requestId: '00000000-0000-4000-8000-000000000001' });
   await startConfiguration(customer1, { leadId: shopProject, packageVersionId: (await withSystem((tx) => tx.one<{ id: string }>(
     `select v.id from package_versions v join lift_packages p on p.id = v.package_id where p.code = 'PREMIUM' and v.status = 'PUBLISHED'`))).id });
+  // AIEC Contract demo: surveyed project → final quotation approved by the engineer → accepted under the AIEC Contract →
+  // order with partner A → confirmed → first milestone invoiced, customer reported the payment, finance verified it.
+  const customer2 = await ctxByPhone('+919000000032');
+  const aiecLead = await createShopProject(customer2, {
+    projectName: 'Mehta Business Centre', address: 'Mehta Business Centre, Baner, Pune', zoneId: baner, buildingType: 'COMMERCIAL',
+    buildingAge: 'NEW', purpose: 'PASSENGER', persons: 6, ratedLoadKg: 408, speedMps: 1, floors: 5, stops: 5, usageFrequency: 'HIGH', accessibility: false,
+    shaftWidthMm: 1900, shaftDepthMm: 1800, pitDepthMm: 1500, overheadMm: 4500, powerSupply: 'THREE_PHASE', consentContact: true, consentPrivacy: true,
+  }, []);
+  await surveyLead(s, aiecLead, 5);
+  const basic = await withSystem((tx) => tx.one<{ id: string }>(`select v.id from package_versions v join lift_packages p on p.id = v.package_id where p.code = 'BASIC' and v.status = 'PUBLISHED'`));
+  const aiecCart = await startConfiguration(customer2, { leadId: aiecLead, packageVersionId: basic.id });
+  const aiecQuote = (await requestQuotation(customer2, { configId: aiecCart, requestId: '00000000-0000-4000-8000-000000000002' })).quotationId;
+  const finalVersion = (await getMarketQuotation(ops, aiecQuote)).current!;
+  await engineeringDecision(market.engineer, { versionId: finalVersion.id, decision: 'APPROVED', note: 'Survey dimensions checked; standard pit and overhead.', acknowledged: [] });
+  await respondQuotation(customer2, { id: aiecQuote, decision: 'ACCEPT', executionModel: 'AIEC_CONTRACT', termsAccepted: true });
+  const aiecOrder = await createAiecOrder(ops, {
+    quotationId: aiecQuote, companyId: a.companyId, partnerPayoutValue: '180000', scopeNote: 'Installation, testing and commissioning; statutory liaison.',
+    contractReference: 'DEMO-AIEC-CTR-001', contractAcceptedOn: daysFromNow(-1), approvalPathNote: 'Partner applies for erection permission; AIEC tracks inspection and working licence.',
+  }, DEMO_PDF);
+  await respondOrder(a.ctx, { id: aiecOrder, decision: 'accept', supervisorUserId: supervisor.userId });
+  const aiecProject = await confirmOrder(ops, aiecOrder);
+  const firstMilestone = await withSystem((tx) => tx.one<{ id: string; amount_due: string }>('select id, amount_due::text from project_milestones where project_id = $1 order by seq limit 1', [aiecProject]));
+  const invoice = await issueCustomerInvoice(ops, { milestoneId: firstMilestone.id, dueDays: 7 });
+  const claim = await recordCustomerPayment(customer2, { invoiceId: invoice, amount: firstMilestone.amount_due, paymentMode: 'UPI', reference: 'DEMO-UPI-0001', paidOn: daysFromNow(0) });
+  await verifyCustomerPayment(s.finance.permissions.has('payment.reconcile') ? s.finance : ops, { id: claim, decision: 'VERIFIED', note: 'Matched with the demo bank statement' });
   await withSystem((tx) => tx.exec('update leads set is_demo = true'));
 
   await saveLender(s.finance, {

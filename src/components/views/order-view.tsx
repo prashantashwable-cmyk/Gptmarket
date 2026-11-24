@@ -19,6 +19,7 @@ export function OrderView({ ctx, t, locale, data, mode }: { ctx: Ctx; t: TFuncti
   const staff = mode === 'staff';
   const openForTerms = ['PENDING_PARTNER_ACCEPTANCE', 'PARTNER_ACCEPTED', 'ON_HOLD'].includes(o.status);
   const supervisorOptions = supervisors.map((u) => ({ value: u.id, label: u.full_name }));
+  const aiec = o.execution_model === 'AIEC_CONTRACT';
   const projectHref = o.project_id ? `/${staff ? 'admin' : 'partner'}/projects/${o.project_id}` : null;
 
   return (
@@ -29,11 +30,18 @@ export function OrderView({ ctx, t, locale, data, mode }: { ctx: Ctx; t: TFuncti
           <DataList columns={3} items={[
             { label: t('f.project'), value: `${o.project_name} · ${o.lead_number}` }, { label: t('f.address'), value: o.address },
             { label: t('f.customer'), value: `${o.customer_name} · ${displayPhone(o.customer_phone)}` }, { label: t('f.partner'), value: o.legal_name },
+            { label: t('mk.aiec.model'), value: t(`e.executionModel.${o.execution_model}`) },
             { label: t('f.frozenQuotation'), value: `${o.quotation_number} · v${o.version_no}` }, { label: t('f.product'), value: `${o.manufacturer ?? ''} ${o.model ?? ''}` },
-            { label: t('f.grossOrderValue'), value: formatINR(o.gross_order_value, locale) },
-            { label: t('f.eligibleValue'), value: o.eligible_value === null ? '—' : formatINR(o.eligible_value, locale) },
-            { label: t('f.commissionRate'), value: `${Number(o.commission_rate_percent)}%` },
-            ...(staff && o.eligible_value !== null ? [{ label: t('f.potentialCommission'), value: formatINR(commissionFor(String(o.eligible_value), String(o.commission_rate_percent)), locale) }] : []),
+            ...(aiec ? [
+              ...(staff ? [{ label: t('mk.aiec.contractValue'), value: formatINR(o.gross_order_value, locale) }] : []),
+              { label: t('mk.aiec.partnerPayout'), value: formatINR(o.partner_payout_value, locale) },
+              { label: t('mk.aiec.scope'), value: o.partner_scope_note ?? '—' },
+            ] : [
+              { label: t('f.grossOrderValue'), value: formatINR(o.gross_order_value, locale) },
+              { label: t('f.eligibleValue'), value: o.eligible_value === null ? '—' : formatINR(o.eligible_value, locale) },
+              { label: t('f.commissionRate'), value: `${Number(o.commission_rate_percent)}%` },
+              ...(staff && o.eligible_value !== null ? [{ label: t('f.potentialCommission'), value: formatINR(commissionFor(String(o.eligible_value), String(o.commission_rate_percent)), locale) }] : []),
+            ]),
             { label: t('f.exclusionsNote'), value: o.exclusions_note ?? '—' },
             { label: t('f.contractReference'), value: o.contract_reference ?? '—' }, { label: t('f.contractAcceptedOn'), value: formatDate(o.contract_accepted_on, locale) },
             { label: t('f.contractDocument'), value: <FileLink id={o.contract_file_id} label={t('common.view')} /> },
@@ -44,20 +52,21 @@ export function OrderView({ ctx, t, locale, data, mode }: { ctx: Ctx; t: TFuncti
           {o.partner_decline_reason && <Alert tone="red" className="mt-3" title={t('e.orderStatus.PARTNER_DECLINED')}>{o.partner_decline_reason}</Alert>}
         </Section>
 
-        <Section title={t('f.paymentMilestones')} description={t('p.order.milestonesNote')}>
-          <Table className="max-w-xl">
+        {aiec && <Alert tone="blue">{t(staff ? 'mk.aiec.orderNoteStaff' : 'mk.aiec.orderNotePartner')}</Alert>}
+        {(staff || !aiec) && <Section title={t('f.paymentMilestones')} description={aiec ? t('mk.aiec.milestonesNote') : t('p.order.milestonesNote')}>
+          <Table>
             <thead><tr><Th>#</Th><Th>{t('f.milestone')}</Th><Th>%</Th><Th>{t('f.amount')}</Th></tr></thead>
             <tbody>{milestones.map((m) => (
               <tr key={m.seq}><Td>{m.seq}</Td><Td>{m.name}</Td><Td>{Number(m.percent)}%</Td><Td>{formatINR(Math.round(Number(o.gross_order_value) * Number(m.percent)) / 100, locale)}</Td></tr>
             ))}</tbody>
           </Table>
-        </Section>
+        </Section>}
 
         {staff && can('order.manage') && openForTerms && (
           <Section title={t('p.order.terms')} description={t('p.order.termsNote')}>
             <ActionForm action={orderTermsAction} resetOnSuccess={false} className="grid gap-4 sm:grid-cols-2">
               <input type="hidden" name="id" value={o.id} />
-              <Field name="eligibleValue" label={t('f.eligibleValue')} required inputMode="decimal" defaultValue={o.eligible_value ?? ''} hint={t('f.eligibleValueHint')} />
+              {!aiec && <Field name="eligibleValue" label={t('f.eligibleValue')} required inputMode="decimal" defaultValue={o.eligible_value ?? ''} hint={t('f.eligibleValueHint')} />}
               <Field name="exclusionsNote" label={t('f.exclusionsNote')} defaultValue={o.exclusions_note ?? ''} />
               <Field name="contractReference" label={t('f.contractReference')} defaultValue={o.contract_reference ?? ''} />
               <Field name="contractAcceptedOn" type="date" label={t('f.contractAcceptedOn')} defaultValue={o.contract_accepted_on ?? ''} />

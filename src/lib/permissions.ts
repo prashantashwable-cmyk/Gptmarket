@@ -16,6 +16,7 @@ export const PERMISSIONS = [
   'user.manage', 'settings.manage', 'audit.view', 'report.view',
   // lift marketplace (AIEC side)
   'market.view', 'market.quote', 'catalogue.approve', 'package.manage', 'pricing.manage', 'pricing.approve', 'engineering.approve',
+  'payout.approve',
   // partner company side
   'company.manage', 'quotation.submit', 'order.accept', 'project.assign', 'milestone.update',
   'payment.evidence.submit', 'commission.view.own', 'team.manage', 'task.perform', 'evidence.submit',

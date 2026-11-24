@@ -43,3 +43,11 @@ re-price, create a new version; old versions stay on record.
 ## If something looks wrong
 - A supplier made a pricing mistake: reject the price with a note. Price changes over 25% are flagged automatically.
 - A supplier misbehaves: set it to **Suspended** with a reason. Its products disappear from carts at once, and open quotations containing them cannot be accepted until you issue a new version.
+
+## AIEC Contract projects (customer pays AIEC)
+1. When a customer accepts with **AIEC Contract**, open the quotation and use **Create order and invite partner**: pick a licensed partner and enter the partner payout. The system refuses a payout that would make you lose money on materials.
+2. The partner accepts; Operations confirms the order (same checklist as always). Milestones and partner payouts are created automatically.
+3. Finance issues an **invoice** for each milestone from the order page. The customer sees it and can submit their UTR.
+4. A **different** finance person verifies each payment against the bank statement. One person cannot record and verify the same payment.
+5. When the partner completes a milestone and there are no serious QC defects, **you** approve the partner payout, then mark it paid with the bank reference.
+6. Online payments (Razorpay) start working once your merchant account is set up and the webhook secret is configured; until then the gateway is switched off.
